@@ -1,0 +1,25 @@
+{
+  "run_id": "slowlog2",
+  "attempts_stored": 1973,
+  "stored_without_client_200": 126,
+  "k6_requests_sent": 1973,
+  "k6_outcomes": {
+    "ml": 1847,
+    "fallback": 0,
+    "unavailable": 126,
+    "other": 0,
+    "dropped_iterations": 28
+  },
+  "db_attempts_by_state": {
+    "COMPLETED:ML": 1906,
+    "IN_PROGRESS:-": 48,
+    "UNAVAILABLE:-": 19
+  },
+  "checks": {
+    "ml_200s_recorded": true,
+    "fallback_200s_recorded": true,
+    "no_phantom_attempts": true,
+    "unstored_were_not_successes": true
+  },
+  "ok": true
+}

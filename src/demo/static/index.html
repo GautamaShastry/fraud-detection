@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout Demo</title>
+  <style>
+    :root { --bg:#f7f7f8; --fg:#1c1d21; --muted:#686b75; --card:#fff; --line:#e3e4e8; --accent:#3451b2; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#111214; --fg:#e8e9ec; --muted:#9a9ca5; --card:#1a1b1e; --line:#2c2e33; --accent:#8da4ff; }
+    }
+    body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+    main { max-width:900px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:12px; }
+    label { display:block; margin:6px 0; }
+    input { font:inherit; padding:4px 8px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); }
+    button { font:inherit; padding:6px 12px; border:1px solid var(--accent); border-radius:6px; background:var(--card); color:var(--accent); margin-right:6px; }
+    pre { white-space:pre-wrap; background:var(--bg); padding:8px; border-radius:6px; overflow:auto; }
+    .decision { font-size:18px; font-weight:600; }
+    .warn { color:#9a6700; }
+  </style>
+</head>
+<body><main>
+  <h2>Checkout demo</h2>
+  <p class="warn">Synthetic demo: no real payments, no card data, no payment processor.</p>
+  <div class="card">
+    <label>Amount (minor units) <input id="amount" type="number" value="4599"></label>
+    <label>Device ID <input id="device" value="demo-device-1"></label>
+    <label>Payment token <input id="token" value="tok-demo-1"></label>
+    <label><input id="outage" type="checkbox"> Simulate scoring outage</label>
+    <p>
+      <button onclick="checkout()">Check out</button>
+      <button onclick="cardTesting()">Card-testing burst (6 new tokens, same device)</button>
+    </p>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+async function send(token) {
+  const res = await fetch("checkout", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount_minor: +$("amount").value, device_id: $("device").value,
+                           payment_method_token: token, simulate_outage: $("outage").checked }),
+  });
+  return res.json();
+}
+function show(r) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const rec = r.response && r.response.recommendation ? r.response.recommendation : "none";
+  card.innerHTML = `<div class="decision"></div>
+    <p>API status: <b></b> · recommendation: <b></b> · client latency: <b></b> ms</p>
+    <details><summary>Request / response</summary><pre></pre></details>`;
+  card.querySelector(".decision").textContent = r.payment_decision;
+  const bolds = card.querySelectorAll("b");
+  bolds[0].textContent = r.status ?? r.error;
+  bolds[1].textContent = rec;
+  bolds[2].textContent = r.client_latency_ms;
+  card.querySelector("pre").textContent = JSON.stringify({ request: r.request, response: r.response }, null, 2);
+  $("out").prepend(card);
+}
+async function checkout() { show(await send($("token").value)); }
+async function cardTesting() {
+  for (let i = 0; i < 6; i++) show(await send("tok-burst-" + Math.random().toString(36).slice(2, 8)));
+}
+</script>
+</body>
+</html>

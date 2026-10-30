@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Data files. The IEEE-CIS dataset is licensed and must never be committed.
+/data/
+*.csv
+*.parquet
+
+# Local dev secrets (generated JWT signing keys)
+infra/local/secrets/
+
+# Model artifacts
+models/*.txt
+models/*.pkl
+models/*.joblib
+models/*.onnx
+models/staging/
+models/production/
+*.model
+
+# Logs and reports
+logs/
+*.log
+reports/*.html
+reports/*.pdf
+
+# AWS credentials and config
+.aws/
+*.pem
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Trained model artifacts (published to S3 / promoted locally, never committed)
+/models/
+infra/local/model.env
+infra/local/archive/

@@ -1,0 +1,26 @@
+{
+  "run_id": "w8r100",
+  "attempts_stored": 2619,
+  "stored_without_client_200": 611,
+  "k6_requests_sent": 2909,
+  "k6_outcomes": {
+    "ml": 1997,
+    "fallback": 11,
+    "unavailable": 875,
+    "other": 26,
+    "dropped_iterations": 91
+  },
+  "db_attempts_by_state": {
+    "COMPLETED:FALLBACK": 11,
+    "COMPLETED:ML": 2155,
+    "IN_PROGRESS:-": 349,
+    "UNAVAILABLE:-": 104
+  },
+  "checks": {
+    "ml_200s_recorded": true,
+    "fallback_200s_recorded": true,
+    "no_phantom_attempts": true,
+    "unstored_were_not_successes": true
+  },
+  "ok": true
+}

@@ -1,0 +1,49 @@
+# Manual, protected deployment to the single demo EC2 host (T-502). Requires approval through the
+# "production" environment. Deploys an image *digest* and a pinned model manifest digest; the host
+# script waits for readiness and rolls back to the previous release if the new one is not ready.
+# Required repository variables: AWS_REGION, AWS_DEPLOY_ROLE_ARN, DEPLOY_INSTANCE_ID
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: "Image reference with digest (registry/repo@sha256:...)"
+        required: true
+      model_manifest_sha256:
+        description: "SHA-256 of the promoted model manifest (from ml.promote)"
+        required: true
+      model_s3_uri:
+        description: "S3 prefix of the promoted model artifact"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "${{ inputs.image_digest }}" =~ @sha256:[0-9a-f]{64}$ ]] || { echo "digest required"; exit 1; }
+          [[ "${{ inputs.model_manifest_sha256 }}" =~ ^[0-9a-f]{64}$ ]] || { echo "bad model sha"; exit 1; }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Deploy via SSM Run Command
+        run: |
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ vars.DEPLOY_INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${{ github.sha }}" \
+            --parameters commands="[\"/opt/fraud/deploy.sh '${{ inputs.image_digest }}' '${{ inputs.model_manifest_sha256 }}' '${{ inputs.model_s3_uri }}'\"]" \
+            --query Command.CommandId --output text)
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "${{ vars.DEPLOY_INSTANCE_ID }}" || true
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "${{ vars.DEPLOY_INSTANCE_ID }}" \
+            --query '{status:Status,out:StandardOutputContent,err:StandardErrorContent}'
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "${{ vars.DEPLOY_INSTANCE_ID }}" --query Status --output text)
+          [ "$STATUS" = "Success" ]

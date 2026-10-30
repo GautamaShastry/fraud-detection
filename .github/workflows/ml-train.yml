@@ -1,0 +1,48 @@
+# On-demand SageMaker training (T-305). Dry run by default: prints the job spec and cost estimate
+# and makes no AWS call. Submitting requires an approved budget that covers the estimate, a named
+# approver, and approval through the protected "ml-training" environment.
+# Required repository variables: AWS_REGION, AWS_TRAINING_ROLE_ARN, SAGEMAKER_EXECUTION_ROLE_ARN,
+#                                TRAINING_IMAGE (ECR digest), MODEL_OUTPUT_S3
+name: ml-train
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Estimated duration (hours); runtime is capped at 1.5x"
+        default: "0.5"
+      instance_type:
+        description: "ml.m5.xlarge or ml.m5.2xlarge"
+        default: "ml.m5.xlarge"
+      approve_cost_usd:
+        description: "Approved budget in USD (leave empty for a dry run)"
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  train:
+    runs-on: ubuntu-24.04
+    environment: ml-training
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.8"
+      - run: pip install -c requirements-lock.txt -e ".[ml]"
+      - if: inputs.approve_cost_usd != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TRAINING_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure (and submit only if approved)
+        run: |
+          ARGS="--image ${{ vars.TRAINING_IMAGE }} --role ${{ vars.SAGEMAKER_EXECUTION_ROLE_ARN }} \
+                --output ${{ vars.MODEL_OUTPUT_S3 }} --git-commit ${{ github.sha }} \
+                --hours ${{ inputs.hours }} --instance-type ${{ inputs.instance_type }}"
+          if [ -n "${{ inputs.approve_cost_usd }}" ]; then
+            ARGS="$ARGS --approve-cost ${{ inputs.approve_cost_usd }} --approver ${{ github.actor }}"
+          fi
+          python -m ml.sagemaker_job $ARGS

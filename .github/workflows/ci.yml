@@ -1,0 +1,86 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.6-alpine
+        env:
+          POSTGRES_USER: fraud
+          POSTGRES_PASSWORD: REMOVED-CREDENTIAL
+          POSTGRES_DB: fraud
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fraud" --health-interval 2s --health-retries 30
+      redis:
+        image: redis:7.4.1-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-retries 30
+    env:
+      # Integration tests must run in CI: an unreachable dependency fails instead of skipping.
+      FRAUD_REQUIRE_INTEGRATION: "1"
+      FRAUD_TEST_OWNER_DSN: postgresql://fraud:REMOVED-CREDENTIAL@127.0.0.1:5432/postgres
+      FRAUD_TEST_REDIS_URL: redis://127.0.0.1:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.8"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - name: Install
+        run: pip install -c requirements-lock.txt -e ".[dev,ml]"
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Type check
+        run: mypy
+      - name: Validate OpenAPI contract
+        run: openapi-spec-validator contracts/openapi.yaml
+      - name: Tests (unit, security, contract, ML, integration)
+        run: pytest
+
+  secret-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  compose-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.8"
+      - name: Install token tooling
+        run: pip install -c requirements-lock.txt "PyJWT[crypto]"
+      - name: Boot stack (stub scorer; no trained model in CI)
+        run: docker compose -f infra/local/compose.yaml up --build --wait
+      - name: Smoke test
+        run: python scripts/smoke_local.py --keys infra/local/secrets
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f infra/local/compose.yaml logs
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/local/compose.yaml down -v

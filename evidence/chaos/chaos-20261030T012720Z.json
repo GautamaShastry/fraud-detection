@@ -1,0 +1,94 @@
+[
+  {
+    "scenario": "redis down",
+    "expected": "every assessment FALLBACK, none unavailable, never decline",
+    "during": {
+      "503:SERVICE_UNAVAILABLE": 1,
+      "slow>500ms": 1,
+      "504:SCORING_DEADLINE_EXCEEDED": 1,
+      "200:FALLBACK": 18
+    },
+    "readiness_during": {
+      "status": "unavailable",
+      "checks": {
+        "postgres": "ok",
+        "redis": "unavailable"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "200:ML": 5,
+      "slow>500ms": 0
+    },
+    "pass": false
+  },
+  {
+    "scenario": "postgres paused",
+    "expected": "explicit 503/504, no fabricated score, fast failure",
+    "during": {
+      "error:ReadTimeout": 2,
+      "slow>500ms": 2,
+      "504:SCORING_DEADLINE_EXCEEDED": 18
+    },
+    "readiness_during": {
+      "status": "unavailable",
+      "checks": {
+        "postgres": "unavailable",
+        "redis": "ok"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "200:ML": 5,
+      "slow>500ms": 0
+    },
+    "pass": true
+  },
+  {
+    "scenario": "worker killed",
+    "expected": "scoring unaffected",
+    "during": {
+      "200:ML": 20,
+      "slow>500ms": 0
+    },
+    "readiness_during": {
+      "status": "ok",
+      "checks": {
+        "postgres": "ok",
+        "redis": "ok"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "503:SERVICE_UNAVAILABLE": 1,
+      "slow>500ms": 2,
+      "504:SCORING_DEADLINE_EXCEEDED": 4
+    },
+    "pass": false
+  },
+  {
+    "scenario": "api down (merchant view)",
+    "expected": "checkout fails open",
+    "demo": {
+      "request": {
+        "transaction_id": "order-demo-ab6a3f14f747",
+        "payment_attempt_id": "demo-ab6a3f14f747",
+        "idempotency_key": "idem-demo-ab6a3f14f747",
+        "amount_minor": 999,
+        "currency": "USD",
+        "occurred_at": "2026-10-30T01:26:47.210Z",
+        "device_id": "chaos",
+        "payment_method_token": "chaos"
+      },
+      "status": null,
+      "response": null,
+      "error": "TimeoutError",
+      "client_latency_ms": 2421.1,
+      "payment_decision": "No assessment: continue to ordinary payment authorization (fail-open, simulated)",
+      "disclaimer": "Synthetic demo: no real payment was attempted."
+    },
+    "elapsed_s": 3.054,
+    "recovered": true,
+    "pass": false
+  }
+]

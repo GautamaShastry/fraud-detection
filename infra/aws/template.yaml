@@ -1,0 +1,263 @@
+# Minimal single-host demo environment (T-502). NOT highly available; not deployed by any agent.
+# Deploying creates billed resources: review infra/aws/README.md and get owner approval first.
+#   aws cloudformation deploy --template-file infra/aws/template.yaml --stack-name fraud-demo \
+#     --capabilities CAPABILITY_NAMED_IAM --parameter-overrides AlertEmail=... GitHubRepo=owner/repo
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Fraud scoring demo - single EC2 host, ECR, S3 archive/models, budget alarm
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium, m5.large]
+  AllowedCidr:
+    Type: String
+    Default: 0.0.0.0/32
+    Description: Who may reach port 8000 (default reaches nobody)
+  AlertEmail:
+    Type: String
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 25
+  GitHubRepo:
+    Type: String
+    Description: owner/repo allowed to assume the release/deploy roles via OIDC
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: fraud-platform
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  ArchiveBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          # PRD section 8: 0-90 d available, 90 d-12 mo cheaper, 12-24 mo archived, then expire.
+          - Id: governed-history
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 90
+              - StorageClass: GLACIER
+                TransitionInDays: 365
+            ExpirationInDays: 730
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+
+  ModelBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: least-privilege-data
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow  # archive: write and verify only; lifecycle does expiry
+                Action: [s3:PutObject, s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt ArchiveBucket.Arn
+                  - !Sub "${ArchiveBucket.Arn}/*"
+              - Effect: Allow  # models: read promoted artifacts only
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt ModelBucket.Arn
+                  - !Sub "${ModelBucket.Arn}/*"
+              - Effect: Allow
+                Action: [ssm:GetParameter]
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/fraud/*"
+
+  HostProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref HostRole]
+
+  HostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Fraud demo host (no SSH; administration via SSM)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: !Ref AllowedCidr
+
+  Host:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref HostProfile
+      SecurityGroupIds: [!GetAtt HostSecurityGroup.GroupId]
+      MetadataOptions:
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -euo pipefail
+          dnf install -y docker
+          systemctl enable --now docker
+          mkdir -p /usr/local/lib/docker/cli-plugins /opt/fraud
+          curl -fsSL https://github.com/docker/compose/releases/download/v2.32.1/docker-compose-linux-x86_64 \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      Tags:
+        - Key: Project
+          Value: FraudDetection
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  ReleaseRole:  # release.yml: push images, nothing else
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+              StringLike:
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubRepo}:environment:release"
+      Policies:
+        - PolicyName: ecr-push
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ecr:GetAuthorizationToken]
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:BatchGetImage
+                Resource: !GetAtt Repository.Arn
+
+  DeployRole:  # deploy.yml: run the deploy script on this one host only
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+              StringLike:
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubRepo}:environment:production"
+      Policies:
+        - PolicyName: ssm-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ssm:SendCommand]
+                Resource:
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Host}"
+                  - !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations]
+                Resource: "*"
+
+  Budget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: fraud-demo-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref AlertEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref AlertEmail
+
+Outputs:
+  InstanceId:
+    Value: !Ref Host
+  RepositoryUri:
+    Value: !GetAtt Repository.RepositoryUri
+  ArchiveBucketName:
+    Value: !Ref ArchiveBucket
+  ModelBucketName:
+    Value: !Ref ModelBucket
+  ReleaseRoleArn:
+    Value: !GetAtt ReleaseRole.Arn
+  DeployRoleArn:
+    Value: !GetAtt DeployRole.Arn

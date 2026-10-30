@@ -1,0 +1,26 @@
+{
+  "run_id": "final-r100",
+  "attempts_stored": 5615,
+  "stored_without_client_200": 2145,
+  "k6_requests_sent": 5790,
+  "k6_outcomes": {
+    "ml": 3464,
+    "fallback": 6,
+    "unavailable": 1529,
+    "other": 791,
+    "dropped_iterations": 211
+  },
+  "db_attempts_by_state": {
+    "IN_PROGRESS:-": 689,
+    "UNAVAILABLE:-": 495,
+    "COMPLETED:ML": 4384,
+    "COMPLETED:FALLBACK": 47
+  },
+  "checks": {
+    "ml_200s_recorded": true,
+    "fallback_200s_recorded": true,
+    "no_phantom_attempts": true,
+    "unstored_were_not_successes": true
+  },
+  "ok": true
+}

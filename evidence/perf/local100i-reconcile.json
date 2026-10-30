@@ -1,0 +1,26 @@
+{
+  "run_id": "local100i",
+  "attempts_stored": 1653,
+  "stored_without_client_200": 1580,
+  "k6_requests_sent": 2268,
+  "k6_outcomes": {
+    "ml": 52,
+    "fallback": 21,
+    "unavailable": 532,
+    "other": 1663,
+    "dropped_iterations": 233
+  },
+  "db_attempts_by_state": {
+    "COMPLETED:FALLBACK": 340,
+    "COMPLETED:ML": 130,
+    "IN_PROGRESS:-": 630,
+    "UNAVAILABLE:-": 553
+  },
+  "checks": {
+    "ml_200s_recorded": true,
+    "fallback_200s_recorded": true,
+    "no_phantom_attempts": true,
+    "unstored_were_not_successes": true
+  },
+  "ok": true
+}

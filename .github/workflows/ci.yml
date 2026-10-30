@@ -64,6 +64,9 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # The workflow token is read-only; PR comments would fail with 403.
+          GITLEAKS_ENABLE_COMMENTS: "false"
 
   compose-smoke:
     runs-on: ubuntu-24.04

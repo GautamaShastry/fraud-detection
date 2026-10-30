@@ -1,0 +1,8 @@
+# gitleaks configuration: default rules plus a narrow allowlist for test-only fixtures.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test-only local fixtures (never used outside the local dev stack)"
+# SHA-256 hashes of the documented local dashboard test passwords (see README).
+paths = ['''^infra/local/dev-users\.json$''']

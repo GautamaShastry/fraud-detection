@@ -1,4 +1,5 @@
-# Local development stack. Test-only credentials; nothing here is suitable for deployment.
+# Local development stack; nothing here is suitable for deployment.
+#   python scripts/dev_env.py      # once: random local credentials in infra/local/.env
 #   docker compose -f infra/local/compose.yaml up --build --wait
 # Optional profile:  --profile observability (Prometheus, Grafana, Jaeger); set
 #                    OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 to export traces.
@@ -10,15 +11,12 @@ x-image: &image
     dockerfile: Dockerfile
   image: fraud-platform:local
 
-x-db-env: &db-env
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-REMOVED-CREDENTIAL}
-
 services:
   postgres:
     image: postgres:16.6-alpine
     environment:
       POSTGRES_USER: fraud
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-REMOVED-CREDENTIAL}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run python scripts/dev_env.py}
       POSTGRES_DB: fraud
     ports: ["127.0.0.1:55432:5432"]
     healthcheck:
@@ -52,9 +50,9 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-m", "src.storage.migrate", "--seed-dev"]
     environment:
-      FRAUD_OWNER_DSN: postgresql://fraud:${POSTGRES_PASSWORD:-REMOVED-CREDENTIAL}@postgres:5432/fraud
-      FRAUD_APP_DB_PASSWORD: ${FRAUD_APP_DB_PASSWORD:-REMOVED-CREDENTIAL}
-      FRAUD_WORKER_DB_PASSWORD: ${FRAUD_WORKER_DB_PASSWORD:-REMOVED-CREDENTIAL}
+      FRAUD_OWNER_DSN: postgresql://fraud:${POSTGRES_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
+      FRAUD_APP_DB_PASSWORD: ${FRAUD_APP_DB_PASSWORD:?run python scripts/dev_env.py}
+      FRAUD_WORKER_DB_PASSWORD: ${FRAUD_WORKER_DB_PASSWORD:?run python scripts/dev_env.py}
 
   api:
     <<: *image
@@ -68,9 +66,9 @@ services:
       FRAUD_JWT_ISSUER: https://local-dev-issuer.invalid
       FRAUD_JWT_AUDIENCE: fraud-api
       FRAUD_JWKS_PATH: /secrets/jwks.json
-      FRAUD_POSTGRES_DSN: postgresql://fraud_app:${FRAUD_APP_DB_PASSWORD:-REMOVED-CREDENTIAL}@postgres:5432/fraud
+      FRAUD_POSTGRES_DSN: postgresql://fraud_app:${FRAUD_APP_DB_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
       FRAUD_REDIS_URL: redis://redis:6379/0
-      FRAUD_PSEUDONYM_KEY: ${FRAUD_PSEUDONYM_KEY:-REMOVED-CREDENTIAL}
+      FRAUD_PSEUDONYM_KEY: ${FRAUD_PSEUDONYM_KEY:?run python scripts/dev_env.py}
       # infra/local/.env (written by `python -m ml.promote`) pins the promoted model; without
       # it the labeled TEST STUB scorer is used.
       FRAUD_SCORER_MODE: ${FRAUD_SCORER_MODE:-stub}
@@ -102,7 +100,7 @@ services:
       migrate: { condition: service_completed_successfully }
     command: ["python", "-m", "src.events.worker"]
     environment:
-      FRAUD_WORKER_POSTGRES_DSN: postgresql://fraud_worker:${FRAUD_WORKER_DB_PASSWORD:-REMOVED-CREDENTIAL}@postgres:5432/fraud
+      FRAUD_WORKER_POSTGRES_DSN: postgresql://fraud_worker:${FRAUD_WORKER_DB_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
       FRAUD_ARCHIVE_URI: file:///archive
       FRAUD_METRICS_PORT: "9100"
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
@@ -119,7 +117,7 @@ services:
     environment:
       DEV_OIDC_ISSUER: http://localhost:8081
       DEV_OIDC_USERS: /config/dev-users.json
-    volumes: ["./dev-users.json:/config/dev-users.json:ro"]
+    volumes: ["./secrets/dev-users.json:/config/dev-users.json:ro"]
     ports: ["127.0.0.1:8081:8081"]
 
   checkout-demo:
@@ -150,7 +148,7 @@ services:
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_SECURITY_ADMIN_PASSWORD: REMOVED-CREDENTIAL
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run python scripts/dev_env.py}
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro

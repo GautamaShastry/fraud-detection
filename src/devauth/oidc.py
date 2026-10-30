@@ -66,7 +66,7 @@ def create_app(
 ) -> FastAPI:
     issuer = str(issuer or os.environ.get("DEV_OIDC_ISSUER") or "http://localhost:8081").rstrip("/")
     users = load_users(
-        users_path or Path(os.environ.get("DEV_OIDC_USERS", "infra/local/dev-users.json"))
+        users_path or Path(os.environ.get("DEV_OIDC_USERS", "infra/local/secrets/dev-users.json"))
     )
     # client_id -> allowed redirect URIs (exact match)
     clients = clients or json.loads(

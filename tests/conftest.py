@@ -1,5 +1,6 @@
 import asyncio
 import json
+import secrets
 import sys
 import time
 from collections.abc import Callable
@@ -30,7 +31,7 @@ ISSUER = "https://test-issuer.invalid"
 AUDIENCE = "fraud-api"
 FIXED_NOW = datetime(2026, 10, 28, 12, 0, 30, tzinfo=UTC)
 TENANT_MAP = {"merchant-a": "tenant-a", "merchant-b": "tenant-b"}
-TEST_PSEUDONYM_KEY = "REMOVED-CREDENTIAL"
+TEST_PSEUDONYM_KEY = secrets.token_hex(32)  # random per test run
 
 
 @pytest.fixture(scope="session")

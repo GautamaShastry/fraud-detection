@@ -7,8 +7,10 @@ unreachable, unless FRAUD_REQUIRE_INTEGRATION=1 (set in CI), which turns skips i
 from __future__ import annotations
 
 import os
+import secrets
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -21,12 +23,25 @@ from src.api.settings import Settings
 from src.storage.migrate import migrate, set_role_passwords
 from tests.conftest import AUDIENCE, ISSUER
 
-OWNER_DSN = os.environ.get(
-    "FRAUD_TEST_OWNER_DSN", "postgresql://fraud:REMOVED-CREDENTIAL@127.0.0.1:55432/postgres"
-)
+
+def _local_owner_dsn() -> str:
+    """Owner DSN for the local compose Postgres, using the generated infra/local/.env."""
+    env_file = Path(__file__).resolve().parents[2] / "infra" / "local" / ".env"
+    values = (
+        dict(line.split("=", 1) for line in env_file.read_text().splitlines() if "=" in line)
+        if env_file.exists()
+        else {}
+    )
+    return psycopg.conninfo.make_conninfo(
+        "postgresql://fraud@127.0.0.1:55432/postgres", password=values.get("POSTGRES_PASSWORD")
+    )
+
+
+OWNER_DSN = os.environ.get("FRAUD_TEST_OWNER_DSN") or _local_owner_dsn()
 REDIS_URL = os.environ.get("FRAUD_TEST_REDIS_URL", "redis://127.0.0.1:56379/15")
-APP_PASSWORD = "REMOVED-CREDENTIAL"
-WORKER_PASSWORD = "REMOVED-CREDENTIAL"
+# Per-run random role passwords for the throwaway test database.
+APP_PASSWORD = secrets.token_urlsafe(16)
+WORKER_PASSWORD = secrets.token_urlsafe(16)
 
 TENANTS = {"tenant-a": "Tenant A", "tenant-b": "Tenant B"}
 CLIENTS = {"merchant-a": "tenant-a", "merchant-b": "tenant-b"}

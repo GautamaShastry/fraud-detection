@@ -19,4 +19,4 @@ tests/ml/test_simulator_and_training.py::test_same_seed_reproduces_identical_mod
     opt_res = optimize.minimize(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-214 passed, 5 warnings in 81.24s (0:01:21)
+214 passed, 5 warnings in 65.51s (0:01:05)

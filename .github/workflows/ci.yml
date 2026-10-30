@@ -20,8 +20,9 @@ jobs:
         image: postgres:16.6-alpine
         env:
           POSTGRES_USER: fraud
-          POSTGRES_PASSWORD: REMOVED-CREDENTIAL
           POSTGRES_DB: fraud
+          # Ephemeral, job-local database: no password literal in the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U fraud" --health-interval 2s --health-retries 30
@@ -33,7 +34,7 @@ jobs:
     env:
       # Integration tests must run in CI: an unreachable dependency fails instead of skipping.
       FRAUD_REQUIRE_INTEGRATION: "1"
-      FRAUD_TEST_OWNER_DSN: postgresql://fraud:REMOVED-CREDENTIAL@127.0.0.1:5432/postgres
+      FRAUD_TEST_OWNER_DSN: postgresql://fraud@127.0.0.1:5432/postgres
       FRAUD_TEST_REDIS_URL: redis://127.0.0.1:6379/15
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +78,8 @@ jobs:
           python-version: "3.12.8"
       - name: Install token tooling
         run: pip install -c requirements-lock.txt "PyJWT[crypto]"
+      - name: Generate local credentials
+        run: python scripts/dev_env.py
       - name: Boot stack (stub scorer; no trained model in CI)
         run: docker compose -f infra/local/compose.yaml up --build --wait
       - name: Smoke test

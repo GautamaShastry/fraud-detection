@@ -33,9 +33,14 @@ Requires Python 3.12 and Docker.
 python -m venv .venv && .venv/Scripts/activate        # Windows; .venv/bin/activate elsewhere
 pip install -c requirements-lock.txt -e ".[dev,ml]"
 
+python scripts/dev_env.py      # once: random local credentials (git-ignored)
 docker compose -f infra/local/compose.yaml up --build --wait
 python scripts/smoke_local.py --keys infra/local/secrets
 ```
+
+No credentials are committed. `scripts/dev_env.py` writes random passwords to `infra/local/.env`
+and creates the dashboard test users, with their passwords listed in
+`infra/local/secrets/dev-users.txt`. Both paths are git-ignored.
 
 Without a promoted model the API uses a **labeled test stub** (`model_version:
 stub-deterministic-0`). To serve the synthetic demo model:
@@ -49,7 +54,7 @@ docker compose -f infra/local/compose.yaml up -d api         # picks up infra/lo
 | URL | What |
 | --- | --- |
 | http://localhost:8000 | Scoring API (`/health/ready`, `/metrics`) |
-| http://localhost:8000/dashboard/ | Dashboard. Test users: `analyst@demo` / `REMOVED-CREDENTIAL`, `admin@demo` / `REMOVED-CREDENTIAL`, `viewer@demo` / `REMOVED-CREDENTIAL`, `analyst@second` / `REMOVED-CREDENTIAL` |
+| http://localhost:8000/dashboard/ | Dashboard. Test users (`admin@demo`, `analyst@demo`, `viewer@demo`, `analyst@second`) and their passwords: `infra/local/secrets/dev-users.txt` |
 | http://localhost:8090 | Checkout demo (synthetic; try "simulate outage") |
 | `--profile observability` | Prometheus :9090, Grafana :3000, Jaeger :16686 (set `OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318`) |
 

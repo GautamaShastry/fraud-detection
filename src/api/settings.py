@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     server_deadline_s: float = 0.170
     primary_budget_s: float = 0.110
     fallback_budget_s: float = 0.040
+    commit_reserve_s: float = 0.020
     attempt_lease_s: float = 2.0
 
     # Request limits. Clock-skew bounds are provisional (I-10).

@@ -1,7 +1,10 @@
 """Deadline-bounded scoring with explicit degradation (FR-06, FR-07, T-105).
 
 Budgets are provisional and configurable (PRD 4.1): primary path (velocity lookup + primary
-model) 110 ms, fallback 40 ms. Outcomes:
+model) up to 110 ms, fallback up to 40 ms. They are limits inside the caller's single request
+deadline, not separate clocks: the primary path gets only what is left after setting aside the
+fallback budget and `commit_reserve_s`, so a slow start or a slow primary cannot use up the time
+the fallback and the commit need. Outcomes:
 
 * ML        primary model produced a valid output within budget
 * FALLBACK  primary failed or timed out, or velocity was unavailable, and the validated
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -35,6 +39,7 @@ VelocityLookup = Callable[[Attempt], Awaitable[VelocityResult]]
 class Budgets:
     primary_s: float = 0.110
     fallback_s: float = 0.040
+    commit_reserve_s: float = 0.020  # Left for recording the assessment after scoring
 
 
 async def _predict(scorer: Scorer, features: dict[str, float | None], timeout_s: float) -> float:
@@ -81,11 +86,20 @@ class ScoringEngine:
             has_shipping=attempt.shipping_ref is not None,
         )
 
-    async def assess(self, attempt: Attempt) -> Assessment | None:
+    async def assess(self, attempt: Attempt, deadline: float | None = None) -> Assessment | None:
+        """Score within `deadline` (a time.perf_counter() value; None means budgets only).
+
+        Raises TimeoutError if the deadline leaves no time for the fallback.
+        """
         started = time.perf_counter()
-        primary_deadline = started + self.budgets.primary_s
+        scoring_ends = math.inf if deadline is None else deadline - self.budgets.commit_reserve_s
+        primary_deadline = min(
+            started + self.budgets.primary_s, scoring_ends - self.budgets.fallback_s
+        )
 
         try:
+            if primary_deadline <= started:
+                raise TimeoutError  # No time to spare: go straight to the fallback.
             velocity = await asyncio.wait_for(
                 self._velocity(attempt), max(primary_deadline - time.perf_counter(), 0.001)
             )
@@ -107,20 +121,25 @@ class ScoringEngine:
             metrics.PRIMARY_FAILURES.labels(reason=reason).inc()
             logger.warning("Primary scoring failed (%s); trying fallback", reason)
 
-        return await self._fallback(attempt, started)
+        return await self._fallback(attempt, started, scoring_ends)
 
-    async def _fallback(self, attempt: Attempt, started: float) -> Assessment | None:
+    async def _fallback(
+        self, attempt: Attempt, started: float, scoring_ends: float
+    ) -> Assessment | None:
         bundle = self.bundle
         if bundle.fallback is None or bundle.fallback_policy is None:
             return None
         # Velocity is excluded: the fallback must not depend on Redis.
         features = build_features(self._inputs(attempt, None))
+        budget = min(self.budgets.fallback_s, scoring_ends - time.perf_counter())
         try:
-            output = await _predict(bundle.fallback, features, self.budgets.fallback_s)
+            output = await _predict(bundle.fallback, features, budget)
         except Exception as exc:  # noqa: BLE001
             reason = "timeout" if isinstance(exc, TimeoutError) else type(exc).__name__
             metrics.FALLBACK_FAILURES.labels(reason=reason).inc()
             logger.warning("Fallback scoring failed (%s)", reason)
+            if isinstance(exc, TimeoutError) and budget < self.budgets.fallback_s:
+                raise  # The request's deadline ran out, not the fallback's own budget.
             return None
         return self._assessment(
             attempt,

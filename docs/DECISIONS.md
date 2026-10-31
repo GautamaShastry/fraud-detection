@@ -42,7 +42,8 @@ Approved Decisions 001–019 live in the owner's decision log, which is not in t
 | No psycopg pipeline mode | A pipelined query cancelled by the deadline left pooled connections broken | `src/storage/db.py` |
 | Archive objects written before taking locks; short commit transaction afterwards | Holding locks during slow object writes stalled API commits | `src/events/archive.py` |
 | Redis circuit breaker: opens for 2 s after 5 consecutive failures; 80 ms per call; a request's own deadline does not count | A dead Redis should cost a few timeouts, not one per request, and one slow call must not move all traffic to the fallback | `src/features/velocity.py` |
-| Tenant lookup bounded to 100 ms | Identity resolution must not consume the merchant's checkout budget | `src/api/auth.py` |
+| Tenant lookup bounded to 100 ms | Identity resolution must not consume the whole request deadline | `src/api/auth.py` |
+| One 170 ms deadline from the start of authentication; primary gets what is left after reserving 40 ms for the fallback and 20 ms for the commit | Separate timers threw away good fallback results in exactly the overloaded conditions the fallback exists for. A primary that would have finished in its last 60 ms now degrades to the fallback when the claim was slow | `src/scoring/engine.py`, `src/api/scoring.py` |
 | JWKS keys refresh in the background after 5 minutes; at most one download per minute; a failed refresh keeps the cached keys | Bounds how long a revoked key is trusted without making requests wait on the issuer. If the issuer is down, availability wins over revocation | `RemoteKeys` |
 | Synthetic-only artifacts need an explicit demo-only approval | The deployable model's features do not exist in IEEE-CIS | `ml/promote.py` |
 | Test-only OIDC provider instead of Keycloak locally | Keycloak's JVM did not fit the development machine's free memory | `src/devauth/oidc.py` |

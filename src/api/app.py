@@ -196,7 +196,11 @@ def create_app(
                 active,
                 velocity or redis_velocity,
                 clock,
-                Budgets(settings.primary_budget_s, settings.fallback_budget_s),
+                Budgets(
+                    settings.primary_budget_s,
+                    settings.fallback_budget_s,
+                    settings.commit_reserve_s,
+                ),
             )
         try:
             yield

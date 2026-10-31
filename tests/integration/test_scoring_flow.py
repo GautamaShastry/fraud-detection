@@ -295,3 +295,32 @@ def test_auth_still_enforced_when_dependencies_down(integration_settings):
     with _client(integration_settings, velocity=_redis_down) as client:
         response = client.post(SCORE, json=now_request())
     assert response.status_code == 401
+
+
+def test_slow_tenant_lookup_counts_against_the_deadline(
+    integration_settings, auth_header, owner_conn
+):
+    """Review finding #3: authentication is inside the deadline, and no claim is taken once it
+    has passed."""
+
+    class SlowResolver:
+        def __init__(self, inner: Any) -> None:
+            self.inner = inner
+
+        async def resolve(self, client_id: str) -> str | None:
+            await asyncio.sleep(0.08)
+            return await self.inner.resolve(client_id)
+
+    settings = integration_settings.model_copy(update={"server_deadline_s": 0.05})
+    body = now_request()
+    with _client(settings) as client:
+        client.app.state.tenants = SlowResolver(client.app.state.tenants)  # type: ignore[attr-defined]
+        response = _post(client, auth_header, body)
+    assert response.status_code == 504
+    assert response.json()["code"] == "SCORING_DEADLINE_EXCEEDED"
+    assert (
+        owner_conn.execute(
+            "SELECT 1 FROM attempts WHERE payment_attempt_id = %s", (body["payment_attempt_id"],)
+        ).fetchone()
+        is None
+    )

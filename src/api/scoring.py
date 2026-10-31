@@ -1,6 +1,7 @@
 """Scoring endpoints (FR-02, FR-03, FR-04, FR-07; T-102..T-105).
 
-POST /score flow, bounded by the 170 ms server deadline:
+POST /score flow, all inside one 170 ms server deadline measured from the start of
+authentication:
 
   1. authenticate, resolve tenant, validate (incl. clock skew)
   2. claim the attempt in PostgreSQL           -> 409 conflict / 202 in progress / 200 replay
@@ -83,7 +84,7 @@ async def score(
     principal: Annotated[Principal, Depends(require_scope(SCOPE_SCORE))],
     body: ScoreRequest,
 ) -> JSONResponse:
-    started = time.perf_counter()
+    started: float = request.state.started
     settings: Settings = request.app.state.settings
     clock: Callable[[], datetime] = request.app.state.clock
     now = clock()
@@ -111,10 +112,14 @@ async def score(
     held: dict[str, uuid.UUID] = {}
     with tracer.start_as_current_span("fraud.score") as span:
         span.set_attribute("tenant.id", principal.tenant_id)
+        deadline = started + settings.server_deadline_s
         try:
-            async with asyncio.timeout(settings.server_deadline_s):
+            remaining = deadline - time.perf_counter()
+            if remaining <= 0:
+                raise TimeoutError  # Authentication used it all: do not take a claim.
+            async with asyncio.timeout(remaining):
                 outcome, response = await _score_flow(
-                    request, attempt, engine, settings, clock, held
+                    request, attempt, engine, settings, clock, held, deadline
                 )
         except TimeoutError:
             outcome = "deadline"
@@ -149,6 +154,7 @@ async def _score_flow(
     settings: Settings,
     clock: Callable[[], datetime],
     held: dict[str, uuid.UUID],
+    deadline: float,
 ) -> tuple[str, JSONResponse]:
     pool = request.app.state.pool
     try:
@@ -179,7 +185,7 @@ async def _score_flow(
     assert claim.claim_token is not None
     held["claim"] = claim.claim_token
     with tracer.start_as_current_span("scoring.assess"):
-        assessment = await engine.assess(attempt)
+        assessment = await engine.assess(attempt, deadline)
     if assessment is None:
         try:
             await repo.mark_unavailable(pool, attempt, claim.claim_token, clock())

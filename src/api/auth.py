@@ -281,11 +281,13 @@ def require_scope(scope: str) -> Callable[[Request], Awaitable[Principal]]:
     """FastAPI dependency: authenticate the merchant, resolve its tenant, require a scope."""
 
     async def dependency(request: Request) -> Principal:
+        # Authentication is part of the request: the scoring deadline is measured from here.
+        request.state.started = time.perf_counter()
         verifier: TokenVerifier = request.app.state.token_verifier
         token = await verifier.averify(bearer_token(request))
         resolver: TenantResolver = request.app.state.tenants
         try:
-            # Bounded: identity resolution must not consume the merchant's checkout budget.
+            # Bounded: identity resolution must not consume the whole request deadline.
             async with asyncio.timeout(TENANT_LOOKUP_TIMEOUT_S):
                 tenant_id = await resolver.resolve(token.client_id)
         except Exception as exc:

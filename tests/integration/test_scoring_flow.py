@@ -298,7 +298,7 @@ def test_auth_still_enforced_when_dependencies_down(integration_settings):
 
 
 def test_slow_tenant_lookup_counts_against_the_deadline(
-    integration_settings, auth_header, owner_conn
+    integration_settings, auth_header, owner_conn, monkeypatch
 ):
     """Review finding #3: authentication is inside the deadline, and no claim is taken once it
     has passed."""
@@ -311,6 +311,8 @@ def test_slow_tenant_lookup_counts_against_the_deadline(
             await asyncio.sleep(0.08)
             return await self.inner.resolve(client_id)
 
+    # Isolate the request deadline from the lookup's own limit, which answers 503.
+    monkeypatch.setattr("src.api.auth.TENANT_LOOKUP_TIMEOUT_S", 5.0)
     settings = integration_settings.model_copy(update={"server_deadline_s": 0.05})
     body = now_request()
     with _client(settings) as client:

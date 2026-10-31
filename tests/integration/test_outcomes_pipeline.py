@@ -308,6 +308,30 @@ async def test_reconciliation_fails_on_orphans_but_not_on_an_export_in_flight(
     assert "archive contains objects with no batch" in report["problems"]
 
 
+async def test_reconciliation_reports_a_missing_object_instead_of_crashing(
+    live_client, auth_header, worker_pool, tmp_path, database
+):
+    assert (
+        live_client.post("/api/v1/fraud/score", json=now_request(), headers=auth_header).status_code
+        == 200
+    )
+    store = FileArchiveStore(tmp_path)
+    batch = (await export_batch(worker_pool, store, datetime.now(UTC))).batch_ids[0]
+    for path in tmp_path.rglob("*.manifest.json"):
+        path.unlink()
+    with psycopg.connect(database["owner"], row_factory=dict_row) as conn:
+        report = reconcile(conn, store)
+    assert not report["ok"] and "archive objects fail verification" in report["problems"]
+    assert report["archive_verification_failures"] == [
+        {
+            "batch_id": batch,
+            "sha256_ok": False,
+            "row_count_ok": False,
+            "error": "FileNotFoundError",
+        }
+    ]
+
+
 async def test_retention_purges_only_archived_rows(
     live_client, auth_header, worker_pool, owner_conn, tmp_path
 ):

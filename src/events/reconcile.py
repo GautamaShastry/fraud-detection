@@ -21,6 +21,19 @@ from psycopg.rows import dict_row
 from src.events.archive import ArchiveStore, store_from_uri, verify_object
 
 
+def _verify(store: ArchiveStore, batch: dict[str, Any]) -> dict[str, Any]:
+    """A missing or unreadable object is a finding to report, not a reason to stop."""
+    try:
+        return verify_object(store, batch["manifest_key"])
+    except Exception as exc:  # noqa: BLE001 - any storage or format error fails verification
+        return {
+            "batch_id": batch["batch_id"],
+            "sha256_ok": False,
+            "row_count_ok": False,
+            "error": type(exc).__name__,
+        }
+
+
 def _batch_of(key: str) -> str:
     name = key.rsplit("/", 1)[-1]
     return name.removesuffix(".manifest.json").removesuffix(".parquet")
@@ -60,14 +73,8 @@ def reconcile(conn: psycopg.Connection[Any], store: ArchiveStore | None) -> dict
     report["archive_batches"] = len(batch_rows)
     report["archive_rows"] = sum(b["row_count"] for b in batch_rows)
     if store is not None:
-        bad = [
-            v
-            for b in batch_rows
-            if not all(
-                (v := verify_object(store, b["manifest_key"]))[k]
-                for k in ("sha256_ok", "row_count_ok")
-            )
-        ]
+        checks = [_verify(store, b) for b in batch_rows]
+        bad = [c for c in checks if not (c["sha256_ok"] and c["row_count_ok"])]
         known = {b["object_key"] for b in batch_rows} | {b["manifest_key"] for b in batch_rows}
         report["archive_verification_failures"] = bad
         # An export between its object writes and its commit is not an orphan.

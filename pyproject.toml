@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marketplace-fraud-platform"
+version = "0.1.0"
+description = "Fraud-risk assessment API for marketplaces (learning/portfolio prototype)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+# Direct dependencies are pinned exactly; the full transitive set is in requirements-lock.txt.
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+    "PyJWT[crypto]==2.14.0",
+    "psycopg[binary]==3.2.3",
+    "psycopg-pool==3.2.4",
+    "redis==5.2.1",
+    "prometheus-client==0.21.1",
+    "opentelemetry-api==1.29.0",
+    "opentelemetry-sdk==1.29.0",
+    "opentelemetry-exporter-otlp-proto-http==1.29.0",
+    "numpy==2.2.1",
+    "scikit-learn==1.6.0",
+    "joblib==1.4.2",
+    "threadpoolctl==3.7.0",
+    "httpx==0.28.1",
+    "python-multipart==0.0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "httpx==0.28.1",
+    "hypothesis==6.123.2",
+    "jsonschema==4.23.0",
+    "openapi-spec-validator==0.7.1",
+    "PyYAML==6.0.2",
+    "ruff==0.8.4",
+    "mypy==1.14.1",
+    "types-PyYAML==6.0.12.20241230",
+    "pytest-asyncio==0.25.0",
+]
+# Archive export (worker image).
+worker = [
+    "pyarrow==18.1.0",
+    "boto3==1.35.90",
+]
+# Offline ML lifecycle (M3). Not installed in the service image.
+ml = [
+    "pandas==2.2.3",
+    "pyarrow==18.1.0",
+    "boto3==1.35.90",
+    "matplotlib==3.10.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*", "ml*"]
+
+[tool.setuptools.package-data]
+"src.storage" = ["migrations/*.sql"]
+"src.dashboard" = ["static/*"]
+"src.demo" = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: needs the local Postgres/Redis stack"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "UP", "S"]
+ignore = ["S101"]  # assert is fine in tests and invariants
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S107"]  # test-only fake secrets
+"scripts/**" = ["S105"]
+"ml/**" = ["N806"]  # X/y naming convention in modeling code
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["src"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["joblib", "sklearn.*", "pyarrow.*", "boto3", "botocore.*", "threadpoolctl"]
+ignore_missing_imports = true

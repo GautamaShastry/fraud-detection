@@ -1,0 +1,22 @@
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+......................................................................   [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\testclient.py:40
+  C:\Users\gauta\OneDrive\Desktop\fraud-detection\.venv\Lib\site-packages\starlette\testclient.py:40: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+tests/integration/test_ml_parity_and_serving.py::test_api_serves_real_model_inference
+  C:\Users\gauta\OneDrive\Desktop\fraud-detection\.venv\Lib\site-packages\joblib\externals\loky\backend\context.py:136: UserWarning: Could not find the number of physical cores for the following reason:
+  [WinError 2] The system cannot find the file specified
+  Returning the number of logical cores instead. You can silence this warning by setting LOKY_MAX_CPU_COUNT to the number of cores you want to use.
+    warnings.warn(
+
+tests/integration/test_ml_parity_and_serving.py::test_api_serves_real_model_inference
+tests/ml/test_simulator_and_training.py::test_same_seed_reproduces_identical_model_files
+tests/ml/test_simulator_and_training.py::test_same_seed_reproduces_identical_model_files
+  C:\Users\gauta\OneDrive\Desktop\fraud-detection\.venv\Lib\site-packages\sklearn\linear_model\_logistic.py:451: OptimizeWarning: Unknown solver options: iprint
+    opt_res = optimize.minimize(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+214 passed, 5 warnings in 65.51s (0:01:05)

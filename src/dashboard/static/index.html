@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fraud Monitoring</title>
+  <style>
+    :root { --bg:#f7f7f8; --fg:#1c1d21; --muted:#686b75; --card:#fff; --line:#e3e4e8;
+            --ok:#1f7a4d; --warn:#9a6700; --bad:#b42318; --accent:#3451b2; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#111214; --fg:#e8e9ec; --muted:#9a9ca5; --card:#1a1b1e; --line:#2c2e33;
+              --ok:#4cc38a; --warn:#e5b546; --bad:#f2777a; --accent:#8da4ff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+    header { display:flex; justify-content:space-between; align-items:center; padding:12px 20px;
+             border-bottom:1px solid var(--line); background:var(--card); }
+    main { max-width:1200px; margin:0 auto; padding:16px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .kpi { font-size:22px; font-weight:600; }
+    .muted { color:var(--muted); }
+    table { width:100%; border-collapse:collapse; background:var(--card); }
+    th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+    tr.click:hover { background:var(--bg); cursor:pointer; }
+    .PROCEED { color:var(--ok); } .VERIFY { color:var(--warn); } .RECOMMEND_DECLINE { color:var(--bad); }
+    button, select { font:inherit; padding:4px 10px; border:1px solid var(--line); border-radius:6px;
+                     background:var(--card); color:var(--fg); }
+    nav button.active { border-color:var(--accent); color:var(--accent); }
+    pre { white-space:pre-wrap; background:var(--bg); padding:8px; border-radius:6px; overflow:auto; }
+    .banner { padding:8px 12px; border-radius:6px; background:var(--bg); margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js" integrity="sha384-toVdrLSMaw7Y55MowcKqkmFL/Ek6Sky62NOk0b5sDDZBu2wcoPyyQUt9unDVjXhL" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/oidc-client-ts@3.1.0/dist/browser/oidc-client-ts.min.js" integrity="sha384-cl/YPPu7KQlFcaRg3Cq3DsU+Jh0s9V9Vx9zqGFR+gbue22aT1fXfKlPEV9dJdg5N" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>

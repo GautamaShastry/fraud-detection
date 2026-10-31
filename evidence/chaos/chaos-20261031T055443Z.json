@@ -1,0 +1,90 @@
+[
+  {
+    "scenario": "redis down",
+    "expected": "every assessment FALLBACK, none unavailable, never decline",
+    "during": {
+      "200:FALLBACK": 20,
+      "slow>500ms": 0
+    },
+    "readiness_during": {
+      "status": "degraded",
+      "checks": {
+        "postgres": "ok",
+        "redis": "unavailable"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "200:ML": 5,
+      "slow>500ms": 0
+    },
+    "pass": true
+  },
+  {
+    "scenario": "postgres paused",
+    "expected": "explicit 503/504, no fabricated score, fast failure",
+    "during": {
+      "504:SCORING_DEADLINE_EXCEEDED": 20,
+      "slow>500ms": 0
+    },
+    "readiness_during": {
+      "status": "unavailable",
+      "checks": {
+        "postgres": "unavailable",
+        "redis": "ok"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "200:ML": 5,
+      "slow>500ms": 0
+    },
+    "pass": true
+  },
+  {
+    "scenario": "worker killed",
+    "expected": "scoring unaffected",
+    "during": {
+      "200:ML": 20,
+      "slow>500ms": 0
+    },
+    "readiness_during": {
+      "status": "ok",
+      "checks": {
+        "postgres": "ok",
+        "redis": "ok"
+      }
+    },
+    "recovered": true,
+    "after_recovery": {
+      "200:ML": 5,
+      "slow>500ms": 0
+    },
+    "pass": true
+  },
+  {
+    "scenario": "api down (merchant view)",
+    "expected": "checkout fails open",
+    "demo": {
+      "request": {
+        "transaction_id": "order-demo-87921ef3e0e3",
+        "payment_attempt_id": "demo-87921ef3e0e3",
+        "idempotency_key": "idem-demo-87921ef3e0e3",
+        "amount_minor": 999,
+        "currency": "USD",
+        "occurred_at": "2026-10-31T05:54:26.489Z",
+        "device_id": "chaos",
+        "payment_method_token": "chaos"
+      },
+      "status": null,
+      "response": null,
+      "error": "TimeoutError",
+      "client_latency_ms": 201.2,
+      "payment_decision": "No assessment: continue to ordinary payment authorization (fail-open, simulated)",
+      "disclaimer": "Synthetic demo: no real payment was attempted."
+    },
+    "elapsed_s": 0.222,
+    "recovered": true,
+    "pass": true
+  }
+]

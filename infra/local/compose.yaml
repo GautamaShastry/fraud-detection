@@ -1,0 +1,175 @@
+# Local development stack; nothing here is suitable for deployment.
+#   python scripts/dev_env.py      # once: random local credentials in infra/local/.env
+#   docker compose -f infra/local/compose.yaml up --build --wait
+# Optional profile:  --profile observability (Prometheus, Grafana, Jaeger); set
+#                    OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 to export traces.
+name: fraud-platform-local
+
+x-image: &image
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: fraud-platform:local
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run python scripts/dev_env.py}
+      POSTGRES_DB: fraud
+    ports: ["127.0.0.1:55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraud"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb",
+              "--maxmemory-policy", "volatile-ttl"]
+    ports: ["127.0.0.1:56379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # Generates the local JWT signing key and JWKS once; reused on later boots.
+  keys-init:
+    <<: *image
+    user: "0"
+    command: ["python", "scripts/dev_jwt.py", "init", "--out", "/secrets"]
+    volumes: ["./secrets:/secrets"]
+
+  # Applies migrations as the schema owner and seeds test-only tenants and clients.
+  migrate:
+    <<: *image
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "src.storage.migrate", "--seed-dev"]
+    environment:
+      FRAUD_OWNER_DSN: postgresql://fraud:${POSTGRES_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
+      FRAUD_APP_DB_PASSWORD: ${FRAUD_APP_DB_PASSWORD:?run python scripts/dev_env.py}
+      FRAUD_WORKER_DB_PASSWORD: ${FRAUD_WORKER_DB_PASSWORD:?run python scripts/dev_env.py}
+
+  api:
+    <<: *image
+    # Several single-threaded worker processes; metrics aggregate via PROMETHEUS_MULTIPROC_DIR.
+    command: ["sh", "-c", "rm -rf \"$$PROMETHEUS_MULTIPROC_DIR\" && mkdir -p \"$$PROMETHEUS_MULTIPROC_DIR\" && exec uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log --workers $${FRAUD_API_WORKERS:-2}"]
+    depends_on:
+      keys-init: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    environment:
+      FRAUD_JWT_ISSUER: https://local-dev-issuer.invalid
+      FRAUD_JWT_AUDIENCE: fraud-api
+      FRAUD_JWKS_PATH: /secrets/jwks.json
+      FRAUD_POSTGRES_DSN: postgresql://fraud_app:${FRAUD_APP_DB_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
+      FRAUD_REDIS_URL: redis://redis:6379/0
+      FRAUD_PSEUDONYM_KEY: ${FRAUD_PSEUDONYM_KEY:?run python scripts/dev_env.py}
+      # infra/local/.env (written by `python -m ml.promote`) pins the promoted model; without
+      # it the labeled TEST STUB scorer is used.
+      FRAUD_SCORER_MODE: ${FRAUD_SCORER_MODE:-stub}
+      FRAUD_MODEL_MANIFEST_SHA256: ${FRAUD_MODEL_MANIFEST_SHA256:-}
+      FRAUD_MODEL_DIR: /models/current
+      FRAUD_DASHBOARD_ENABLED: "true"
+      FRAUD_OIDC_ISSUER: http://localhost:8081
+      FRAUD_OIDC_AUDIENCE: fraud-dashboard
+      FRAUD_OIDC_JWKS_URL: http://dev-oidc:8081/jwks
+      FRAUD_OIDC_CLIENT_ID: fraud-dashboard
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: fraud-api
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
+      FRAUD_API_WORKERS: ${FRAUD_API_WORKERS:-2}
+      FRAUD_DB_POOL_MAX: "10"
+    volumes:
+      - ./secrets:/secrets:ro
+      - ../../models:/models:ro
+    ports: ["127.0.0.1:8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *image
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    command: ["python", "-m", "src.events.worker"]
+    environment:
+      FRAUD_WORKER_POSTGRES_DSN: postgresql://fraud_worker:${FRAUD_WORKER_DB_PASSWORD:?run python scripts/dev_env.py}@postgres:5432/fraud
+      FRAUD_ARCHIVE_URI: file:///archive
+      FRAUD_METRICS_PORT: "9100"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: fraud-worker
+    volumes:
+      - archive:/archive  # Docker volume: bind mounts to the Windows host are very slow
+    user: "0"
+
+  # Test-only OIDC provider for dashboard sign-in (replace with a managed issuer when deployed).
+  dev-oidc:
+    <<: *image
+    command: ["uvicorn", "src.devauth.oidc:create_app", "--factory", "--host", "0.0.0.0",
+              "--port", "8081"]
+    environment:
+      DEV_OIDC_ISSUER: http://localhost:8081
+      DEV_OIDC_USERS: /config/dev-users.json
+    volumes: ["./secrets/dev-users.json:/config/dev-users.json:ro"]
+    ports: ["127.0.0.1:8081:8081"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/.well-known/openid-configuration', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  checkout-demo:
+    <<: *image
+    depends_on:
+      api: { condition: service_healthy }
+    command: ["uvicorn", "src.demo.app:create_app", "--factory", "--host", "0.0.0.0",
+              "--port", "8090"]
+    environment:
+      DEMO_FRAUD_API_URL: http://api:8000
+      DEMO_KEYS_DIR: /secrets
+      DEMO_CLIENT_ID: demo-merchant
+      DEMO_TIMEOUT_S: "0.2"
+    volumes: ["./secrets:/secrets:ro"]
+    ports: ["127.0.0.1:8090:8090"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    profiles: ["observability"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    profiles: ["observability"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run python scripts/dev_env.py}
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["127.0.0.1:3000:3000"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    profiles: ["observability"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports: ["127.0.0.1:16686:16686"]
+
+volumes:
+  archive:

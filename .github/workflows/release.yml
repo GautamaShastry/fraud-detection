@@ -1,0 +1,37 @@
+# Build and push an immutable image to ECR (T-501). Manual: pushing to ECR is a billed AWS action.
+# AWS access uses GitHub OIDC (no long-lived keys). Required repository variables:
+#   AWS_REGION, AWS_RELEASE_ROLE_ARN, ECR_REPOSITORY
+name: release-image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-24.04
+    environment: release
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_RELEASE_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - id: push
+        name: Build and push (tag = commit SHA; deploy by digest)
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE")
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "### Released image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"

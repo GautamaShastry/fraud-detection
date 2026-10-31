@@ -1,0 +1,67 @@
+# Alert thresholds are provisional starting points (no production baseline exists yet).
+# Runbooks: docs/runbooks/
+groups:
+  - name: fraud-scoring
+    rules:
+      - alert: ScoringUnavailableRate
+        expr: |
+          sum(rate(fraud_score_requests_total{outcome=~"unavailable|deadline"}[5m]))
+            / clamp_min(sum(rate(fraud_score_requests_total[5m])), 1e-9) > 0.001
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "More than 0.1% of scoring requests get no assessment (merchants fail open)"
+          runbook: docs/runbooks/scoring-unavailable.md
+      - alert: FallbackRateHigh
+        expr: |
+          sum(rate(fraud_score_requests_total{outcome="fallback"}[5m]))
+            / clamp_min(sum(rate(fraud_score_requests_total{outcome=~"ml|fallback"}[5m])), 1e-9) > 0.01
+        for: 5m
+        labels: { severity: ticket }
+        annotations:
+          summary: "More than 1% of assessments are degraded (fallback)"
+          runbook: docs/runbooks/redis-outage.md
+      - alert: WorkerStepFailing
+        expr: sum by (step) (rate(fraud_worker_step_failures_total[5m])) > 0
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "A worker step (inbox, export, purge or backlog) keeps failing"
+          runbook: docs/runbooks/worker-backlog.md
+      - alert: ScoringLatencyP99High
+        expr: |
+          histogram_quantile(0.99, sum by (le) (rate(fraud_score_latency_seconds_bucket{outcome=~"ml|fallback"}[5m]))) > 0.2
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Server-side scoring p99 above 200 ms"
+          runbook: docs/runbooks/latency.md
+      - alert: AuthFailureSpike
+        expr: sum(rate(fraud_auth_failures_total[5m])) > 5
+        for: 5m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Sustained authentication/authorization failures (misconfiguration or probing)"
+          runbook: docs/runbooks/security-probe.md
+  - name: fraud-events
+    rules:
+      - alert: InboxBacklogGrowing
+        expr: fraud_inbox_backlog > 1000 and deriv(fraud_inbox_backlog[10m]) > 0
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Outcome inbox backlog is growing"
+          runbook: docs/runbooks/worker-backlog.md
+      - alert: DeadLetteredEvents
+        expr: increase(fraud_worker_events_total{result="dead"}[1h]) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: "Outcome events were dead-lettered and need review"
+          runbook: docs/runbooks/worker-backlog.md
+      - alert: OutboxNotDraining
+        expr: fraud_outbox_backlog > 10000
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          summary: "Archive export is not keeping up; retention purge will wait"
+          runbook: docs/runbooks/worker-backlog.md

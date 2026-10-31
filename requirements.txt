@@ -1,0 +1,4 @@
+# Install with: pip install -e ".[dev,ml]" -c requirements-lock.txt
+# Dependencies are declared in pyproject.toml.
+-c requirements-lock.txt
+-e .[dev,ml]

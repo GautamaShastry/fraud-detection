@@ -1,0 +1,4738 @@
+{
+  "excluded_features": [],
+  "feature_availability": [
+    {
+      "api_source": "amount_minor",
+      "ieee_source": "TransactionAmt",
+      "note": "IEEE amounts are in USD major units; currency is not recorded.",
+      "online_feature": "amount_log",
+      "status": "AVAILABLE"
+    },
+    {
+      "api_source": "occurred_at",
+      "ieee_source": "TransactionDT",
+      "note": "TransactionDT is seconds from an undisclosed reference; hour-of-day is only recoverable up to an unknown offset.",
+      "online_feature": "hour_sin",
+      "status": "PARTIAL"
+    },
+    {
+      "api_source": "occurred_at",
+      "ieee_source": "TransactionDT",
+      "note": "As hour_sin.",
+      "online_feature": "hour_cos",
+      "status": "PARTIAL"
+    },
+    {
+      "api_source": "account_created_at",
+      "ieee_source": "D1 (days since card first use?)",
+      "note": "D-columns are undocumented timedeltas; none is defined as account age, so using one would invent semantics.",
+      "online_feature": "account_age_days",
+      "status": "UNAVAILABLE"
+    },
+    {
+      "api_source": "device_id + payment_method_token",
+      "ieee_source": "none",
+      "note": "IEEE has no device identifier (DeviceInfo is a model string), so F01 cannot be computed from IEEE-CIS.",
+      "online_feature": "device_distinct_payment_methods_5m",
+      "status": "UNAVAILABLE"
+    },
+    {
+      "api_source": "customer_id",
+      "ieee_source": "none",
+      "note": "No customer identifier in IEEE-CIS.",
+      "online_feature": "has_customer",
+      "status": "UNAVAILABLE"
+    },
+    {
+      "api_source": "device_id",
+      "ieee_source": "DeviceType/DeviceInfo presence",
+      "note": "Presence of device metadata, not of a device identifier.",
+      "online_feature": "has_device",
+      "status": "PARTIAL"
+    },
+    {
+      "api_source": "payment_method_token",
+      "ieee_source": "card1 presence",
+      "note": "card1 is an anonymized card attribute, not a token.",
+      "online_feature": "has_payment_method",
+      "status": "PARTIAL"
+    },
+    {
+      "api_source": "ip_address",
+      "ieee_source": "none",
+      "note": "No IP column.",
+      "online_feature": "has_ip",
+      "status": "UNAVAILABLE"
+    },
+    {
+      "api_source": "shipping_destination_ref",
+      "ieee_source": "addr1/addr2 presence",
+      "note": "addr1/addr2 are anonymized billing-region codes, not shipping references.",
+      "online_feature": "has_shipping",
+      "status": "PARTIAL"
+    }
+  ],
+  "feature_types": {
+    "C1": "numeric",
+    "C10": "numeric",
+    "C11": "numeric",
+    "C12": "numeric",
+    "C13": "numeric",
+    "C14": "numeric",
+    "C2": "numeric",
+    "C3": "numeric",
+    "C4": "numeric",
+    "C5": "numeric",
+    "C6": "numeric",
+    "C7": "numeric",
+    "C8": "numeric",
+    "C9": "numeric",
+    "D1": "numeric",
+    "D10": "numeric",
+    "D11": "numeric",
+    "D12": "numeric",
+    "D13": "numeric",
+    "D14": "numeric",
+    "D15": "numeric",
+    "D2": "numeric",
+    "D3": "numeric",
+    "D4": "numeric",
+    "D5": "numeric",
+    "D6": "numeric",
+    "D7": "numeric",
+    "D8": "numeric",
+    "D9": "numeric",
+    "DeviceInfo": "categorical",
+    "DeviceType": "categorical",
+    "M1": "categorical",
+    "M2": "categorical",
+    "M3": "categorical",
+    "M4": "categorical",
+    "M5": "categorical",
+    "M6": "categorical",
+    "M7": "categorical",
+    "M8": "categorical",
+    "M9": "categorical",
+    "P_emaildomain": "categorical",
+    "ProductCD": "categorical",
+    "R_emaildomain": "categorical",
+    "TransactionAmt": "numeric",
+    "TransactionDT": "numeric",
+    "V1": "numeric",
+    "V10": "numeric",
+    "V100": "numeric",
+    "V101": "numeric",
+    "V102": "numeric",
+    "V103": "numeric",
+    "V104": "numeric",
+    "V105": "numeric",
+    "V106": "numeric",
+    "V107": "numeric",
+    "V108": "numeric",
+    "V109": "numeric",
+    "V11": "numeric",
+    "V110": "numeric",
+    "V111": "numeric",
+    "V112": "numeric",
+    "V113": "numeric",
+    "V114": "numeric",
+    "V115": "numeric",
+    "V116": "numeric",
+    "V117": "numeric",
+    "V118": "numeric",
+    "V119": "numeric",
+    "V12": "numeric",
+    "V120": "numeric",
+    "V121": "numeric",
+    "V122": "numeric",
+    "V123": "numeric",
+    "V124": "numeric",
+    "V125": "numeric",
+    "V126": "numeric",
+    "V127": "numeric",
+    "V128": "numeric",
+    "V129": "numeric",
+    "V13": "numeric",
+    "V130": "numeric",
+    "V131": "numeric",
+    "V132": "numeric",
+    "V133": "numeric",
+    "V134": "numeric",
+    "V135": "numeric",
+    "V136": "numeric",
+    "V137": "numeric",
+    "V138": "numeric",
+    "V139": "numeric",
+    "V14": "numeric",
+    "V140": "numeric",
+    "V141": "numeric",
+    "V142": "numeric",
+    "V143": "numeric",
+    "V144": "numeric",
+    "V145": "numeric",
+    "V146": "numeric",
+    "V147": "numeric",
+    "V148": "numeric",
+    "V149": "numeric",
+    "V15": "numeric",
+    "V150": "numeric",
+    "V151": "numeric",
+    "V152": "numeric",
+    "V153": "numeric",
+    "V154": "numeric",
+    "V155": "numeric",
+    "V156": "numeric",
+    "V157": "numeric",
+    "V158": "numeric",
+    "V159": "numeric",
+    "V16": "numeric",
+    "V160": "numeric",
+    "V161": "numeric",
+    "V162": "numeric",
+    "V163": "numeric",
+    "V164": "numeric",
+    "V165": "numeric",
+    "V166": "numeric",
+    "V167": "numeric",
+    "V168": "numeric",
+    "V169": "numeric",
+    "V17": "numeric",
+    "V170": "numeric",
+    "V171": "numeric",
+    "V172": "numeric",
+    "V173": "numeric",
+    "V174": "numeric",
+    "V175": "numeric",
+    "V176": "numeric",
+    "V177": "numeric",
+    "V178": "numeric",
+    "V179": "numeric",
+    "V18": "numeric",
+    "V180": "numeric",
+    "V181": "numeric",
+    "V182": "numeric",
+    "V183": "numeric",
+    "V184": "numeric",
+    "V185": "numeric",
+    "V186": "numeric",
+    "V187": "numeric",
+    "V188": "numeric",
+    "V189": "numeric",
+    "V19": "numeric",
+    "V190": "numeric",
+    "V191": "numeric",
+    "V192": "numeric",
+    "V193": "numeric",
+    "V194": "numeric",
+    "V195": "numeric",
+    "V196": "numeric",
+    "V197": "numeric",
+    "V198": "numeric",
+    "V199": "numeric",
+    "V2": "numeric",
+    "V20": "numeric",
+    "V200": "numeric",
+    "V201": "numeric",
+    "V202": "numeric",
+    "V203": "numeric",
+    "V204": "numeric",
+    "V205": "numeric",
+    "V206": "numeric",
+    "V207": "numeric",
+    "V208": "numeric",
+    "V209": "numeric",
+    "V21": "numeric",
+    "V210": "numeric",
+    "V211": "numeric",
+    "V212": "numeric",
+    "V213": "numeric",
+    "V214": "numeric",
+    "V215": "numeric",
+    "V216": "numeric",
+    "V217": "numeric",
+    "V218": "numeric",
+    "V219": "numeric",
+    "V22": "numeric",
+    "V220": "numeric",
+    "V221": "numeric",
+    "V222": "numeric",
+    "V223": "numeric",
+    "V224": "numeric",
+    "V225": "numeric",
+    "V226": "numeric",
+    "V227": "numeric",
+    "V228": "numeric",
+    "V229": "numeric",
+    "V23": "numeric",
+    "V230": "numeric",
+    "V231": "numeric",
+    "V232": "numeric",
+    "V233": "numeric",
+    "V234": "numeric",
+    "V235": "numeric",
+    "V236": "numeric",
+    "V237": "numeric",
+    "V238": "numeric",
+    "V239": "numeric",
+    "V24": "numeric",
+    "V240": "numeric",
+    "V241": "numeric",
+    "V242": "numeric",
+    "V243": "numeric",
+    "V244": "numeric",
+    "V245": "numeric",
+    "V246": "numeric",
+    "V247": "numeric",
+    "V248": "numeric",
+    "V249": "numeric",
+    "V25": "numeric",
+    "V250": "numeric",
+    "V251": "numeric",
+    "V252": "numeric",
+    "V253": "numeric",
+    "V254": "numeric",
+    "V255": "numeric",
+    "V256": "numeric",
+    "V257": "numeric",
+    "V258": "numeric",
+    "V259": "numeric",
+    "V26": "numeric",
+    "V260": "numeric",
+    "V261": "numeric",
+    "V262": "numeric",
+    "V263": "numeric",
+    "V264": "numeric",
+    "V265": "numeric",
+    "V266": "numeric",
+    "V267": "numeric",
+    "V268": "numeric",
+    "V269": "numeric",
+    "V27": "numeric",
+    "V270": "numeric",
+    "V271": "numeric",
+    "V272": "numeric",
+    "V273": "numeric",
+    "V274": "numeric",
+    "V275": "numeric",
+    "V276": "numeric",
+    "V277": "numeric",
+    "V278": "numeric",
+    "V279": "numeric",
+    "V28": "numeric",
+    "V280": "numeric",
+    "V281": "numeric",
+    "V282": "numeric",
+    "V283": "numeric",
+    "V284": "numeric",
+    "V285": "numeric",
+    "V286": "numeric",
+    "V287": "numeric",
+    "V288": "numeric",
+    "V289": "numeric",
+    "V29": "numeric",
+    "V290": "numeric",
+    "V291": "numeric",
+    "V292": "numeric",
+    "V293": "numeric",
+    "V294": "numeric",
+    "V295": "numeric",
+    "V296": "numeric",
+    "V297": "numeric",
+    "V298": "numeric",
+    "V299": "numeric",
+    "V3": "numeric",
+    "V30": "numeric",
+    "V300": "numeric",
+    "V301": "numeric",
+    "V302": "numeric",
+    "V303": "numeric",
+    "V304": "numeric",
+    "V305": "numeric",
+    "V306": "numeric",
+    "V307": "numeric",
+    "V308": "numeric",
+    "V309": "numeric",
+    "V31": "numeric",
+    "V310": "numeric",
+    "V311": "numeric",
+    "V312": "numeric",
+    "V313": "numeric",
+    "V314": "numeric",
+    "V315": "numeric",
+    "V316": "numeric",
+    "V317": "numeric",
+    "V318": "numeric",
+    "V319": "numeric",
+    "V32": "numeric",
+    "V320": "numeric",
+    "V321": "numeric",
+    "V322": "numeric",
+    "V323": "numeric",
+    "V324": "numeric",
+    "V325": "numeric",
+    "V326": "numeric",
+    "V327": "numeric",
+    "V328": "numeric",
+    "V329": "numeric",
+    "V33": "numeric",
+    "V330": "numeric",
+    "V331": "numeric",
+    "V332": "numeric",
+    "V333": "numeric",
+    "V334": "numeric",
+    "V335": "numeric",
+    "V336": "numeric",
+    "V337": "numeric",
+    "V338": "numeric",
+    "V339": "numeric",
+    "V34": "numeric",
+    "V35": "numeric",
+    "V36": "numeric",
+    "V37": "numeric",
+    "V38": "numeric",
+    "V39": "numeric",
+    "V4": "numeric",
+    "V40": "numeric",
+    "V41": "numeric",
+    "V42": "numeric",
+    "V43": "numeric",
+    "V44": "numeric",
+    "V45": "numeric",
+    "V46": "numeric",
+    "V47": "numeric",
+    "V48": "numeric",
+    "V49": "numeric",
+    "V5": "numeric",
+    "V50": "numeric",
+    "V51": "numeric",
+    "V52": "numeric",
+    "V53": "numeric",
+    "V54": "numeric",
+    "V55": "numeric",
+    "V56": "numeric",
+    "V57": "numeric",
+    "V58": "numeric",
+    "V59": "numeric",
+    "V6": "numeric",
+    "V60": "numeric",
+    "V61": "numeric",
+    "V62": "numeric",
+    "V63": "numeric",
+    "V64": "numeric",
+    "V65": "numeric",
+    "V66": "numeric",
+    "V67": "numeric",
+    "V68": "numeric",
+    "V69": "numeric",
+    "V7": "numeric",
+    "V70": "numeric",
+    "V71": "numeric",
+    "V72": "numeric",
+    "V73": "numeric",
+    "V74": "numeric",
+    "V75": "numeric",
+    "V76": "numeric",
+    "V77": "numeric",
+    "V78": "numeric",
+    "V79": "numeric",
+    "V8": "numeric",
+    "V80": "numeric",
+    "V81": "numeric",
+    "V82": "numeric",
+    "V83": "numeric",
+    "V84": "numeric",
+    "V85": "numeric",
+    "V86": "numeric",
+    "V87": "numeric",
+    "V88": "numeric",
+    "V89": "numeric",
+    "V9": "numeric",
+    "V90": "numeric",
+    "V91": "numeric",
+    "V92": "numeric",
+    "V93": "numeric",
+    "V94": "numeric",
+    "V95": "numeric",
+    "V96": "numeric",
+    "V97": "numeric",
+    "V98": "numeric",
+    "V99": "numeric",
+    "addr1": "categorical",
+    "addr2": "categorical",
+    "card1": "categorical",
+    "card2": "categorical",
+    "card3": "categorical",
+    "card4": "categorical",
+    "card5": "categorical",
+    "card6": "categorical",
+    "dist1": "numeric",
+    "dist2": "numeric",
+    "id_01": "numeric",
+    "id_02": "numeric",
+    "id_03": "numeric",
+    "id_04": "numeric",
+    "id_05": "numeric",
+    "id_06": "numeric",
+    "id_07": "numeric",
+    "id_08": "numeric",
+    "id_09": "numeric",
+    "id_10": "numeric",
+    "id_11": "numeric",
+    "id_12": "categorical",
+    "id_13": "categorical",
+    "id_14": "categorical",
+    "id_15": "categorical",
+    "id_16": "categorical",
+    "id_17": "categorical",
+    "id_18": "categorical",
+    "id_19": "categorical",
+    "id_20": "categorical",
+    "id_21": "categorical",
+    "id_22": "categorical",
+    "id_23": "categorical",
+    "id_24": "categorical",
+    "id_25": "categorical",
+    "id_26": "categorical",
+    "id_27": "categorical",
+    "id_28": "categorical",
+    "id_29": "categorical",
+    "id_30": "categorical",
+    "id_31": "categorical",
+    "id_32": "categorical",
+    "id_33": "categorical",
+    "id_34": "categorical",
+    "id_35": "categorical",
+    "id_36": "categorical",
+    "id_37": "categorical",
+    "id_38": "categorical"
+  },
+  "fraud_rate": 0.03499000914417313,
+  "identity_columns": [
+    {
+      "cardinality": null,
+      "dtype": "int64",
+      "name": "TransactionID",
+      "numeric_range": [
+        2987004.0,
+        3577534.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_01",
+      "numeric_range": [
+        -100.0,
+        0.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_02",
+      "numeric_range": [
+        1.0,
+        999595.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_03",
+      "numeric_range": [
+        -13.0,
+        10.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_04",
+      "numeric_range": [
+        -28.0,
+        0.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_05",
+      "numeric_range": [
+        -72.0,
+        52.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_06",
+      "numeric_range": [
+        -100.0,
+        0.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_07",
+      "numeric_range": [
+        -46.0,
+        61.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_08",
+      "numeric_range": [
+        -100.0,
+        0.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_09",
+      "numeric_range": [
+        -36.0,
+        25.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_10",
+      "numeric_range": [
+        -100.0,
+        0.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "id_11",
+      "numeric_range": [
+        90.0,
+        100.0
+      ]
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_12",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 54,
+      "dtype": "float64",
+      "name": "id_13",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 25,
+      "dtype": "float64",
+      "name": "id_14",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 3,
+      "dtype": "object",
+      "name": "id_15",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_16",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 104,
+      "dtype": "float64",
+      "name": "id_17",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 18,
+      "dtype": "float64",
+      "name": "id_18",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 522,
+      "dtype": "float64",
+      "name": "id_19",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 394,
+      "dtype": "float64",
+      "name": "id_20",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 490,
+      "dtype": "float64",
+      "name": "id_21",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 25,
+      "dtype": "float64",
+      "name": "id_22",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 3,
+      "dtype": "object",
+      "name": "id_23",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 12,
+      "dtype": "float64",
+      "name": "id_24",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 341,
+      "dtype": "float64",
+      "name": "id_25",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 95,
+      "dtype": "float64",
+      "name": "id_26",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_27",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_28",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_29",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 75,
+      "dtype": "object",
+      "name": "id_30",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 130,
+      "dtype": "object",
+      "name": "id_31",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 4,
+      "dtype": "float64",
+      "name": "id_32",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 260,
+      "dtype": "object",
+      "name": "id_33",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 4,
+      "dtype": "object",
+      "name": "id_34",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_35",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_36",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_37",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "id_38",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "DeviceType",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 1786,
+      "dtype": "object",
+      "name": "DeviceInfo",
+      "numeric_range": null
+    }
+  ],
+  "identity_coverage": 0.2442391709283029,
+  "join_key": "TransactionID",
+  "missingness_rates": {
+    "C1": 0.0,
+    "C10": 0.0,
+    "C11": 0.0,
+    "C12": 0.0,
+    "C13": 0.0,
+    "C14": 0.0,
+    "C2": 0.0,
+    "C3": 0.0,
+    "C4": 0.0,
+    "C5": 0.0,
+    "C6": 0.0,
+    "C7": 0.0,
+    "C8": 0.0,
+    "C9": 0.0,
+    "D1": 0.0021488806854743116,
+    "D10": 0.1287330240119213,
+    "D11": 0.47293494090154775,
+    "D12": 0.8904104717715988,
+    "D13": 0.8950926270870728,
+    "D14": 0.8946946862193924,
+    "D15": 0.1509008703898127,
+    "D2": 0.4754919226470688,
+    "D3": 0.44514850814508755,
+    "D4": 0.2860466691502693,
+    "D5": 0.524674027161581,
+    "D6": 0.8760676668811597,
+    "D7": 0.9340992989467267,
+    "D8": 0.8731229044603245,
+    "D9": 0.8731229044603245,
+    "DeviceInfo": 0.17726179168428863,
+    "DeviceType": 0.023732432938370553,
+    "M1": 0.4590713584177194,
+    "M2": 0.4590713584177194,
+    "M3": 0.4590713584177194,
+    "M4": 0.47658753005723575,
+    "M5": 0.5934940901547736,
+    "M6": 0.28678836319300977,
+    "M7": 0.5863531682866528,
+    "M8": 0.5863311545365258,
+    "M9": 0.5863311545365258,
+    "P_emaildomain": 0.1599485216920107,
+    "ProductCD": 0.0,
+    "R_emaildomain": 0.7675161716395164,
+    "TransactionAmt": 0.0,
+    "TransactionDT": 0.0,
+    "TransactionID": 0.0,
+    "V1": 0.47293494090154775,
+    "V10": 0.47293494090154775,
+    "V100": 0.0005317167338368274,
+    "V101": 0.0005317167338368274,
+    "V102": 0.0005317167338368274,
+    "V103": 0.0005317167338368274,
+    "V104": 0.0005317167338368274,
+    "V105": 0.0005317167338368274,
+    "V106": 0.0005317167338368274,
+    "V107": 0.0005317167338368274,
+    "V108": 0.0005317167338368274,
+    "V109": 0.0005317167338368274,
+    "V11": 0.47293494090154775,
+    "V110": 0.0005317167338368274,
+    "V111": 0.0005317167338368274,
+    "V112": 0.0005317167338368274,
+    "V113": 0.0005317167338368274,
+    "V114": 0.0005317167338368274,
+    "V115": 0.0005317167338368274,
+    "V116": 0.0005317167338368274,
+    "V117": 0.0005317167338368274,
+    "V118": 0.0005317167338368274,
+    "V119": 0.0005317167338368274,
+    "V12": 0.1288193856470349,
+    "V120": 0.0005317167338368274,
+    "V121": 0.0005317167338368274,
+    "V122": 0.0005317167338368274,
+    "V123": 0.0005317167338368274,
+    "V124": 0.0005317167338368274,
+    "V125": 0.0005317167338368274,
+    "V126": 0.0005317167338368274,
+    "V127": 0.0005317167338368274,
+    "V128": 0.0005317167338368274,
+    "V129": 0.0005317167338368274,
+    "V13": 0.1288193856470349,
+    "V130": 0.0005317167338368274,
+    "V131": 0.0005317167338368274,
+    "V132": 0.0005317167338368274,
+    "V133": 0.0005317167338368274,
+    "V134": 0.0005317167338368274,
+    "V135": 0.0005317167338368274,
+    "V136": 0.0005317167338368274,
+    "V137": 0.0005317167338368274,
+    "V138": 0.8612371727571375,
+    "V139": 0.8612371727571375,
+    "V14": 0.1288193856470349,
+    "V140": 0.8612371727571375,
+    "V141": 0.8612371727571375,
+    "V142": 0.8612371727571375,
+    "V143": 0.8612270125647712,
+    "V144": 0.8612270125647712,
+    "V145": 0.8612270125647712,
+    "V146": 0.8612371727571375,
+    "V147": 0.8612371727571375,
+    "V148": 0.8612371727571375,
+    "V149": 0.8612371727571375,
+    "V15": 0.1288193856470349,
+    "V150": 0.8612270125647712,
+    "V151": 0.8612270125647712,
+    "V152": 0.8612270125647712,
+    "V153": 0.8612371727571375,
+    "V154": 0.8612371727571375,
+    "V155": 0.8612371727571375,
+    "V156": 0.8612371727571375,
+    "V157": 0.8612371727571375,
+    "V158": 0.8612371727571375,
+    "V159": 0.8612270125647712,
+    "V16": 0.1288193856470349,
+    "V160": 0.8612270125647712,
+    "V161": 0.8612371727571375,
+    "V162": 0.8612371727571375,
+    "V163": 0.8612371727571375,
+    "V164": 0.8612270125647712,
+    "V165": 0.8612270125647712,
+    "V166": 0.8612270125647712,
+    "V167": 0.763553696616656,
+    "V168": 0.763553696616656,
+    "V169": 0.7632353439225116,
+    "V17": 0.1288193856470349,
+    "V170": 0.7632353439225116,
+    "V171": 0.7632353439225116,
+    "V172": 0.763553696616656,
+    "V173": 0.763553696616656,
+    "V174": 0.7632353439225116,
+    "V175": 0.7632353439225116,
+    "V176": 0.763553696616656,
+    "V177": 0.763553696616656,
+    "V178": 0.763553696616656,
+    "V179": 0.763553696616656,
+    "V18": 0.1288193856470349,
+    "V180": 0.7632353439225116,
+    "V181": 0.763553696616656,
+    "V182": 0.763553696616656,
+    "V183": 0.763553696616656,
+    "V184": 0.7632353439225116,
+    "V185": 0.7632353439225116,
+    "V186": 0.763553696616656,
+    "V187": 0.763553696616656,
+    "V188": 0.7632353439225116,
+    "V189": 0.7632353439225116,
+    "V19": 0.1288193856470349,
+    "V190": 0.763553696616656,
+    "V191": 0.763553696616656,
+    "V192": 0.763553696616656,
+    "V193": 0.763553696616656,
+    "V194": 0.7632353439225116,
+    "V195": 0.7632353439225116,
+    "V196": 0.763553696616656,
+    "V197": 0.7632353439225116,
+    "V198": 0.7632353439225116,
+    "V199": 0.763553696616656,
+    "V2": 0.47293494090154775,
+    "V20": 0.1288193856470349,
+    "V200": 0.7632353439225116,
+    "V201": 0.7632353439225116,
+    "V202": 0.763553696616656,
+    "V203": 0.763553696616656,
+    "V204": 0.763553696616656,
+    "V205": 0.763553696616656,
+    "V206": 0.763553696616656,
+    "V207": 0.763553696616656,
+    "V208": 0.7632353439225116,
+    "V209": 0.7632353439225116,
+    "V21": 0.1288193856470349,
+    "V210": 0.7632353439225116,
+    "V211": 0.763553696616656,
+    "V212": 0.763553696616656,
+    "V213": 0.763553696616656,
+    "V214": 0.763553696616656,
+    "V215": 0.763553696616656,
+    "V216": 0.763553696616656,
+    "V217": 0.7791343516103905,
+    "V218": 0.7791343516103905,
+    "V219": 0.7791343516103905,
+    "V22": 0.1288193856470349,
+    "V220": 0.7605310393876791,
+    "V221": 0.7605310393876791,
+    "V222": 0.7605310393876791,
+    "V223": 0.7791343516103905,
+    "V224": 0.7791343516103905,
+    "V225": 0.7791343516103905,
+    "V226": 0.7791343516103905,
+    "V227": 0.7605310393876791,
+    "V228": 0.7791343516103905,
+    "V229": 0.7791343516103905,
+    "V23": 0.1288193856470349,
+    "V230": 0.7791343516103905,
+    "V231": 0.7791343516103905,
+    "V232": 0.7791343516103905,
+    "V233": 0.7791343516103905,
+    "V234": 0.7605310393876791,
+    "V235": 0.7791343516103905,
+    "V236": 0.7791343516103905,
+    "V237": 0.7791343516103905,
+    "V238": 0.7605310393876791,
+    "V239": 0.7605310393876791,
+    "V24": 0.1288193856470349,
+    "V240": 0.7791343516103905,
+    "V241": 0.7791343516103905,
+    "V242": 0.7791343516103905,
+    "V243": 0.7791343516103905,
+    "V244": 0.7791343516103905,
+    "V245": 0.7605310393876791,
+    "V246": 0.7791343516103905,
+    "V247": 0.7791343516103905,
+    "V248": 0.7791343516103905,
+    "V249": 0.7791343516103905,
+    "V25": 0.1288193856470349,
+    "V250": 0.7605310393876791,
+    "V251": 0.7605310393876791,
+    "V252": 0.7791343516103905,
+    "V253": 0.7791343516103905,
+    "V254": 0.7791343516103905,
+    "V255": 0.7605310393876791,
+    "V256": 0.7605310393876791,
+    "V257": 0.7791343516103905,
+    "V258": 0.7791343516103905,
+    "V259": 0.7605310393876791,
+    "V26": 0.1288193856470349,
+    "V260": 0.7791343516103905,
+    "V261": 0.7791343516103905,
+    "V262": 0.7791343516103905,
+    "V263": 0.7791343516103905,
+    "V264": 0.7791343516103905,
+    "V265": 0.7791343516103905,
+    "V266": 0.7791343516103905,
+    "V267": 0.7791343516103905,
+    "V268": 0.7791343516103905,
+    "V269": 0.7791343516103905,
+    "V27": 0.1288193856470349,
+    "V270": 0.7605310393876791,
+    "V271": 0.7605310393876791,
+    "V272": 0.7605310393876791,
+    "V273": 0.7791343516103905,
+    "V274": 0.7791343516103905,
+    "V275": 0.7791343516103905,
+    "V276": 0.7791343516103905,
+    "V277": 0.7791343516103905,
+    "V278": 0.7791343516103905,
+    "V279": 2.0320384732617603e-05,
+    "V28": 0.1288193856470349,
+    "V280": 2.0320384732617603e-05,
+    "V281": 0.0021488806854743116,
+    "V282": 0.0021488806854743116,
+    "V283": 0.0021488806854743116,
+    "V284": 2.0320384732617603e-05,
+    "V285": 2.0320384732617603e-05,
+    "V286": 2.0320384732617603e-05,
+    "V287": 2.0320384732617603e-05,
+    "V288": 0.0021488806854743116,
+    "V289": 0.0021488806854743116,
+    "V29": 0.1288193856470349,
+    "V290": 2.0320384732617603e-05,
+    "V291": 2.0320384732617603e-05,
+    "V292": 2.0320384732617603e-05,
+    "V293": 2.0320384732617603e-05,
+    "V294": 2.0320384732617603e-05,
+    "V295": 2.0320384732617603e-05,
+    "V296": 0.0021488806854743116,
+    "V297": 2.0320384732617603e-05,
+    "V298": 2.0320384732617603e-05,
+    "V299": 2.0320384732617603e-05,
+    "V3": 0.47293494090154775,
+    "V30": 0.1288193856470349,
+    "V300": 0.0021488806854743116,
+    "V301": 0.0021488806854743116,
+    "V302": 2.0320384732617603e-05,
+    "V303": 2.0320384732617603e-05,
+    "V304": 2.0320384732617603e-05,
+    "V305": 2.0320384732617603e-05,
+    "V306": 2.0320384732617603e-05,
+    "V307": 2.0320384732617603e-05,
+    "V308": 2.0320384732617603e-05,
+    "V309": 2.0320384732617603e-05,
+    "V31": 0.1288193856470349,
+    "V310": 2.0320384732617603e-05,
+    "V311": 2.0320384732617603e-05,
+    "V312": 2.0320384732617603e-05,
+    "V313": 0.0021488806854743116,
+    "V314": 0.0021488806854743116,
+    "V315": 0.0021488806854743116,
+    "V316": 2.0320384732617603e-05,
+    "V317": 2.0320384732617603e-05,
+    "V318": 2.0320384732617603e-05,
+    "V319": 2.0320384732617603e-05,
+    "V32": 0.1288193856470349,
+    "V320": 2.0320384732617603e-05,
+    "V321": 2.0320384732617603e-05,
+    "V322": 0.8605496664070174,
+    "V323": 0.8605496664070174,
+    "V324": 0.8605496664070174,
+    "V325": 0.8605496664070174,
+    "V326": 0.8605496664070174,
+    "V327": 0.8605496664070174,
+    "V328": 0.8605496664070174,
+    "V329": 0.8605496664070174,
+    "V33": 0.1288193856470349,
+    "V330": 0.8605496664070174,
+    "V331": 0.8605496664070174,
+    "V332": 0.8605496664070174,
+    "V333": 0.8605496664070174,
+    "V334": 0.8605496664070174,
+    "V335": 0.8605496664070174,
+    "V336": 0.8605496664070174,
+    "V337": 0.8605496664070174,
+    "V338": 0.8605496664070174,
+    "V339": 0.8605496664070174,
+    "V34": 0.1288193856470349,
+    "V35": 0.2861262573238053,
+    "V36": 0.2861262573238053,
+    "V37": 0.2861262573238053,
+    "V38": 0.2861262573238053,
+    "V39": 0.2861262573238053,
+    "V4": 0.47293494090154775,
+    "V40": 0.2861262573238053,
+    "V41": 0.2861262573238053,
+    "V42": 0.2861262573238053,
+    "V43": 0.2861262573238053,
+    "V44": 0.2861262573238053,
+    "V45": 0.2861262573238053,
+    "V46": 0.2861262573238053,
+    "V47": 0.2861262573238053,
+    "V48": 0.2861262573238053,
+    "V49": 0.2861262573238053,
+    "V5": 0.47293494090154775,
+    "V50": 0.2861262573238053,
+    "V51": 0.2861262573238053,
+    "V52": 0.2861262573238053,
+    "V53": 0.13055169844549055,
+    "V54": 0.13055169844549055,
+    "V55": 0.13055169844549055,
+    "V56": 0.13055169844549055,
+    "V57": 0.13055169844549055,
+    "V58": 0.13055169844549055,
+    "V59": 0.13055169844549055,
+    "V6": 0.47293494090154775,
+    "V60": 0.13055169844549055,
+    "V61": 0.13055169844549055,
+    "V62": 0.13055169844549055,
+    "V63": 0.13055169844549055,
+    "V64": 0.13055169844549055,
+    "V65": 0.13055169844549055,
+    "V66": 0.13055169844549055,
+    "V67": 0.13055169844549055,
+    "V68": 0.13055169844549055,
+    "V69": 0.13055169844549055,
+    "V7": 0.47293494090154775,
+    "V70": 0.13055169844549055,
+    "V71": 0.13055169844549055,
+    "V72": 0.13055169844549055,
+    "V73": 0.13055169844549055,
+    "V74": 0.13055169844549055,
+    "V75": 0.15098723202492634,
+    "V76": 0.15098723202492634,
+    "V77": 0.15098723202492634,
+    "V78": 0.15098723202492634,
+    "V79": 0.15098723202492634,
+    "V8": 0.47293494090154775,
+    "V80": 0.15098723202492634,
+    "V81": 0.15098723202492634,
+    "V82": 0.15098723202492634,
+    "V83": 0.15098723202492634,
+    "V84": 0.15098723202492634,
+    "V85": 0.15098723202492634,
+    "V86": 0.15098723202492634,
+    "V87": 0.15098723202492634,
+    "V88": 0.15098723202492634,
+    "V89": 0.15098723202492634,
+    "V9": 0.47293494090154775,
+    "V90": 0.15098723202492634,
+    "V91": 0.15098723202492634,
+    "V92": 0.15098723202492634,
+    "V93": 0.15098723202492634,
+    "V94": 0.15098723202492634,
+    "V95": 0.0005317167338368274,
+    "V96": 0.0005317167338368274,
+    "V97": 0.0005317167338368274,
+    "V98": 0.0005317167338368274,
+    "V99": 0.0005317167338368274,
+    "addr1": 0.1112642666034477,
+    "addr2": 0.1112642666034477,
+    "card1": 0.0,
+    "card2": 0.015126833068039422,
+    "card3": 0.0026501168422122124,
+    "card4": 0.00267043722694483,
+    "card5": 0.007212043214684865,
+    "card6": 0.0026602770345785214,
+    "dist1": 0.596523520845328,
+    "dist2": 0.9362837403054831,
+    "id_01": 0.0,
+    "id_02": 0.0233025729202055,
+    "id_03": 0.5401607121809849,
+    "id_04": 0.5401607121809849,
+    "id_05": 0.05108400990064687,
+    "id_06": 0.05108400990064687,
+    "id_07": 0.9642592194574058,
+    "id_08": 0.9642592194574058,
+    "id_09": 0.4805211012736336,
+    "id_10": 0.4805211012736336,
+    "id_11": 0.02256765095366525,
+    "id_12": 0.0,
+    "id_13": 0.11726165301976663,
+    "id_14": 0.4450368500967185,
+    "id_15": 0.022519118370969194,
+    "id_16": 0.10325653629890524,
+    "id_17": 0.033723211747658306,
+    "id_18": 0.6872213709761289,
+    "id_19": 0.034076806278729554,
+    "id_20": 0.034472000166397426,
+    "id_21": 0.9642314865530079,
+    "id_22": 0.9641621542920136,
+    "id_23": 0.9641621542920136,
+    "id_24": 0.9670879757059757,
+    "id_25": 0.9644186836576928,
+    "id_26": 0.9642037536486102,
+    "id_27": 0.9641621542920136,
+    "id_28": 0.02256765095366525,
+    "id_29": 0.02256765095366525,
+    "id_30": 0.46222431759722116,
+    "id_31": 0.027393176318872933,
+    "id_32": 0.462078719849133,
+    "id_33": 0.4918707923984109,
+    "id_34": 0.46056034333335644,
+    "id_35": 0.022519118370969194,
+    "id_36": 0.022519118370969194,
+    "id_37": 0.022519118370969194,
+    "id_38": 0.022519118370969194,
+    "isFraud": 0.0
+  },
+  "n_identity_rows": 144233,
+  "n_transactions": 590540,
+  "source_files": {
+    "train_identity.csv": {
+      "bytes": 26529680,
+      "sha256": "b63c725d8377be90a995268d97f347c17d456b95db45807adcf9f59cd603c37c"
+    },
+    "train_transaction.csv": {
+      "bytes": 683351067,
+      "sha256": "3a5c83ab6b3cc13dcabe5ffa9f522307fd5f7f7b6e6f6a60c32284ca6283d642"
+    }
+  },
+  "temporal_column": "TransactionDT",
+  "temporal_range": [
+    86400.0,
+    15811131.0
+  ],
+  "temporal_semantics": "Seconds elapsed from an undisclosed reference datetime (not a real timestamp). Monotonic in event time; used for chronological ordering and splitting.",
+  "transaction_columns": [
+    {
+      "cardinality": null,
+      "dtype": "int64",
+      "name": "TransactionID",
+      "numeric_range": [
+        2987000.0,
+        3577539.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "int64",
+      "name": "isFraud",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "int64",
+      "name": "TransactionDT",
+      "numeric_range": [
+        86400.0,
+        15811131.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "TransactionAmt",
+      "numeric_range": [
+        0.251,
+        31937.391
+      ]
+    },
+    {
+      "cardinality": 5,
+      "dtype": "object",
+      "name": "ProductCD",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 13553,
+      "dtype": "int64",
+      "name": "card1",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 500,
+      "dtype": "float64",
+      "name": "card2",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 114,
+      "dtype": "float64",
+      "name": "card3",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 4,
+      "dtype": "object",
+      "name": "card4",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 119,
+      "dtype": "float64",
+      "name": "card5",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 4,
+      "dtype": "object",
+      "name": "card6",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 332,
+      "dtype": "float64",
+      "name": "addr1",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 74,
+      "dtype": "float64",
+      "name": "addr2",
+      "numeric_range": null
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "dist1",
+      "numeric_range": [
+        0.0,
+        10286.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "dist2",
+      "numeric_range": [
+        0.0,
+        11623.0
+      ]
+    },
+    {
+      "cardinality": 59,
+      "dtype": "object",
+      "name": "P_emaildomain",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 60,
+      "dtype": "object",
+      "name": "R_emaildomain",
+      "numeric_range": null
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C1",
+      "numeric_range": [
+        0.0,
+        4685.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C2",
+      "numeric_range": [
+        0.0,
+        5691.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C3",
+      "numeric_range": [
+        0.0,
+        26.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C4",
+      "numeric_range": [
+        0.0,
+        2253.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C5",
+      "numeric_range": [
+        0.0,
+        349.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C6",
+      "numeric_range": [
+        0.0,
+        2253.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C7",
+      "numeric_range": [
+        0.0,
+        2255.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C8",
+      "numeric_range": [
+        0.0,
+        3331.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C9",
+      "numeric_range": [
+        0.0,
+        210.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C10",
+      "numeric_range": [
+        0.0,
+        3257.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C11",
+      "numeric_range": [
+        0.0,
+        3188.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C12",
+      "numeric_range": [
+        0.0,
+        3188.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C13",
+      "numeric_range": [
+        0.0,
+        2918.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "C14",
+      "numeric_range": [
+        0.0,
+        1429.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D1",
+      "numeric_range": [
+        0.0,
+        640.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D2",
+      "numeric_range": [
+        0.0,
+        640.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D3",
+      "numeric_range": [
+        0.0,
+        819.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D4",
+      "numeric_range": [
+        -122.0,
+        869.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D5",
+      "numeric_range": [
+        0.0,
+        819.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D6",
+      "numeric_range": [
+        -83.0,
+        873.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D7",
+      "numeric_range": [
+        0.0,
+        843.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D8",
+      "numeric_range": [
+        0.0,
+        1707.7916259765625
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D9",
+      "numeric_range": [
+        0.0,
+        0.9583330154418944
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D10",
+      "numeric_range": [
+        0.0,
+        876.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D11",
+      "numeric_range": [
+        -53.0,
+        670.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D12",
+      "numeric_range": [
+        -83.0,
+        648.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D13",
+      "numeric_range": [
+        0.0,
+        847.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D14",
+      "numeric_range": [
+        -193.0,
+        878.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "D15",
+      "numeric_range": [
+        -83.0,
+        879.0
+      ]
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M1",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M2",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M3",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 3,
+      "dtype": "object",
+      "name": "M4",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M5",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M6",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M7",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M8",
+      "numeric_range": null
+    },
+    {
+      "cardinality": 2,
+      "dtype": "object",
+      "name": "M9",
+      "numeric_range": null
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V1",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V2",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V3",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V4",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V5",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V6",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V7",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V8",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V9",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V10",
+      "numeric_range": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V11",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V12",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V13",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V14",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V15",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V16",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V17",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V18",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V19",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V20",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V21",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V22",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V23",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V24",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V25",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V26",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V27",
+      "numeric_range": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V28",
+      "numeric_range": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V29",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V30",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V31",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V32",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V33",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V34",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V35",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V36",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V37",
+      "numeric_range": [
+        0.0,
+        54.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V38",
+      "numeric_range": [
+        0.0,
+        54.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V39",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V40",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V41",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V42",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V43",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V44",
+      "numeric_range": [
+        0.0,
+        48.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V45",
+      "numeric_range": [
+        0.0,
+        48.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V46",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V47",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V48",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V49",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V50",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V51",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V52",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V53",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V54",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V55",
+      "numeric_range": [
+        0.0,
+        17.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V56",
+      "numeric_range": [
+        0.0,
+        51.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V57",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V58",
+      "numeric_range": [
+        0.0,
+        10.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V59",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V60",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V61",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V62",
+      "numeric_range": [
+        0.0,
+        10.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V63",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V64",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V65",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V66",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V67",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V68",
+      "numeric_range": [
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V69",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V70",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V71",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V72",
+      "numeric_range": [
+        0.0,
+        10.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V73",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V74",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V75",
+      "numeric_range": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V76",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V77",
+      "numeric_range": [
+        0.0,
+        30.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V78",
+      "numeric_range": [
+        0.0,
+        31.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V79",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V80",
+      "numeric_range": [
+        0.0,
+        19.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V81",
+      "numeric_range": [
+        0.0,
+        19.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V82",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V83",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V84",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V85",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V86",
+      "numeric_range": [
+        0.0,
+        30.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V87",
+      "numeric_range": [
+        0.0,
+        30.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V88",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V89",
+      "numeric_range": [
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V90",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V91",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V92",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V93",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V94",
+      "numeric_range": [
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V95",
+      "numeric_range": [
+        0.0,
+        880.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V96",
+      "numeric_range": [
+        0.0,
+        1410.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V97",
+      "numeric_range": [
+        0.0,
+        976.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V98",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V99",
+      "numeric_range": [
+        0.0,
+        88.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V100",
+      "numeric_range": [
+        0.0,
+        28.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V101",
+      "numeric_range": [
+        0.0,
+        869.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V102",
+      "numeric_range": [
+        0.0,
+        1285.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V103",
+      "numeric_range": [
+        0.0,
+        928.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V104",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V105",
+      "numeric_range": [
+        0.0,
+        99.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V106",
+      "numeric_range": [
+        0.0,
+        55.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V107",
+      "numeric_range": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V108",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V109",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V110",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V111",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V112",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V113",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V114",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V115",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V116",
+      "numeric_range": [
+        0.0,
+        6.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V117",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V118",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V119",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V120",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V121",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V122",
+      "numeric_range": [
+        0.0,
+        3.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V123",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V124",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V125",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V126",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V127",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V128",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V129",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V130",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V131",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V132",
+      "numeric_range": [
+        0.0,
+        93736.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V133",
+      "numeric_range": [
+        0.0,
+        133915.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V134",
+      "numeric_range": [
+        0.0,
+        98476.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V135",
+      "numeric_range": [
+        0.0,
+        90750.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V136",
+      "numeric_range": [
+        0.0,
+        90750.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V137",
+      "numeric_range": [
+        0.0,
+        90750.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V138",
+      "numeric_range": [
+        0.0,
+        22.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V139",
+      "numeric_range": [
+        0.0,
+        33.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V140",
+      "numeric_range": [
+        0.0,
+        33.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V141",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V142",
+      "numeric_range": [
+        0.0,
+        9.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V143",
+      "numeric_range": [
+        0.0,
+        869.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V144",
+      "numeric_range": [
+        0.0,
+        62.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V145",
+      "numeric_range": [
+        0.0,
+        297.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V146",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V147",
+      "numeric_range": [
+        0.0,
+        26.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V148",
+      "numeric_range": [
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V149",
+      "numeric_range": [
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V150",
+      "numeric_range": [
+        1.0,
+        3389.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V151",
+      "numeric_range": [
+        1.0,
+        57.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V152",
+      "numeric_range": [
+        1.0,
+        69.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V153",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V154",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V155",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V156",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V157",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V158",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V159",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V160",
+      "numeric_range": [
+        0.0,
+        641511.4375
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V161",
+      "numeric_range": [
+        0.0,
+        3300.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V162",
+      "numeric_range": [
+        0.0,
+        3300.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V163",
+      "numeric_range": [
+        0.0,
+        3300.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V164",
+      "numeric_range": [
+        0.0,
+        93736.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V165",
+      "numeric_range": [
+        0.0,
+        98476.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V166",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V167",
+      "numeric_range": [
+        0.0,
+        872.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V168",
+      "numeric_range": [
+        0.0,
+        964.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V169",
+      "numeric_range": [
+        0.0,
+        19.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V170",
+      "numeric_range": [
+        0.0,
+        48.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V171",
+      "numeric_range": [
+        0.0,
+        61.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V172",
+      "numeric_range": [
+        0.0,
+        31.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V173",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V174",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V175",
+      "numeric_range": [
+        0.0,
+        14.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V176",
+      "numeric_range": [
+        0.0,
+        48.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V177",
+      "numeric_range": [
+        0.0,
+        861.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V178",
+      "numeric_range": [
+        0.0,
+        1235.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V179",
+      "numeric_range": [
+        0.0,
+        920.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V180",
+      "numeric_range": [
+        0.0,
+        83.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V181",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V182",
+      "numeric_range": [
+        0.0,
+        83.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V183",
+      "numeric_range": [
+        0.0,
+        41.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V184",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V185",
+      "numeric_range": [
+        0.0,
+        31.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V186",
+      "numeric_range": [
+        0.0,
+        38.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V187",
+      "numeric_range": [
+        0.0,
+        218.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V188",
+      "numeric_range": [
+        0.0,
+        30.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V189",
+      "numeric_range": [
+        0.0,
+        30.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V190",
+      "numeric_range": [
+        0.0,
+        42.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V191",
+      "numeric_range": [
+        0.0,
+        21.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V192",
+      "numeric_range": [
+        0.0,
+        44.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V193",
+      "numeric_range": [
+        0.0,
+        37.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V194",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V195",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V196",
+      "numeric_range": [
+        0.0,
+        38.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V197",
+      "numeric_range": [
+        0.0,
+        14.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V198",
+      "numeric_range": [
+        0.0,
+        21.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V199",
+      "numeric_range": [
+        0.0,
+        45.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V200",
+      "numeric_range": [
+        0.0,
+        45.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V201",
+      "numeric_range": [
+        0.0,
+        55.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V202",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V203",
+      "numeric_range": [
+        0.0,
+        139777.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V204",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V205",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V206",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V207",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V208",
+      "numeric_range": [
+        0.0,
+        3300.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V209",
+      "numeric_range": [
+        0.0,
+        8050.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V210",
+      "numeric_range": [
+        0.0,
+        3300.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V211",
+      "numeric_range": [
+        0.0,
+        92888.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V212",
+      "numeric_range": [
+        0.0,
+        129006.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V213",
+      "numeric_range": [
+        0.0,
+        97628.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V214",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V215",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V216",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V217",
+      "numeric_range": [
+        0.0,
+        303.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V218",
+      "numeric_range": [
+        0.0,
+        400.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V219",
+      "numeric_range": [
+        0.0,
+        378.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V220",
+      "numeric_range": [
+        0.0,
+        25.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V221",
+      "numeric_range": [
+        0.0,
+        384.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V222",
+      "numeric_range": [
+        0.0,
+        384.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V223",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V224",
+      "numeric_range": [
+        0.0,
+        144.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V225",
+      "numeric_range": [
+        0.0,
+        51.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V226",
+      "numeric_range": [
+        0.0,
+        242.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V227",
+      "numeric_range": [
+        0.0,
+        360.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V228",
+      "numeric_range": [
+        0.0,
+        54.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V229",
+      "numeric_range": [
+        0.0,
+        176.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V230",
+      "numeric_range": [
+        0.0,
+        65.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V231",
+      "numeric_range": [
+        0.0,
+        293.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V232",
+      "numeric_range": [
+        0.0,
+        337.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V233",
+      "numeric_range": [
+        0.0,
+        332.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V234",
+      "numeric_range": [
+        0.0,
+        121.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V235",
+      "numeric_range": [
+        0.0,
+        23.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V236",
+      "numeric_range": [
+        0.0,
+        45.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V237",
+      "numeric_range": [
+        0.0,
+        39.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V238",
+      "numeric_range": [
+        0.0,
+        23.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V239",
+      "numeric_range": [
+        0.0,
+        23.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V240",
+      "numeric_range": [
+        0.0,
+        7.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V241",
+      "numeric_range": [
+        0.0,
+        5.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V242",
+      "numeric_range": [
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V243",
+      "numeric_range": [
+        0.0,
+        57.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V244",
+      "numeric_range": [
+        0.0,
+        22.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V245",
+      "numeric_range": [
+        0.0,
+        262.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V246",
+      "numeric_range": [
+        0.0,
+        45.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V247",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V248",
+      "numeric_range": [
+        0.0,
+        36.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V249",
+      "numeric_range": [
+        0.0,
+        22.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V250",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V251",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V252",
+      "numeric_range": [
+        0.0,
+        24.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V253",
+      "numeric_range": [
+        0.0,
+        163.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V254",
+      "numeric_range": [
+        0.0,
+        60.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V255",
+      "numeric_range": [
+        0.0,
+        87.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V256",
+      "numeric_range": [
+        0.0,
+        87.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V257",
+      "numeric_range": [
+        0.0,
+        48.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V258",
+      "numeric_range": [
+        0.0,
+        66.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V259",
+      "numeric_range": [
+        0.0,
+        285.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V260",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V261",
+      "numeric_range": [
+        0.0,
+        49.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V262",
+      "numeric_range": [
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V263",
+      "numeric_range": [
+        0.0,
+        153600.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V264",
+      "numeric_range": [
+        0.0,
+        153600.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V265",
+      "numeric_range": [
+        0.0,
+        153600.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V266",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V267",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V268",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V269",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V270",
+      "numeric_range": [
+        0.0,
+        4000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V271",
+      "numeric_range": [
+        0.0,
+        4000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V272",
+      "numeric_range": [
+        0.0,
+        4000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V273",
+      "numeric_range": [
+        0.0,
+        51200.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V274",
+      "numeric_range": [
+        0.0,
+        66000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V275",
+      "numeric_range": [
+        0.0,
+        51200.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V276",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V277",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V278",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V279",
+      "numeric_range": [
+        0.0,
+        880.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V280",
+      "numeric_range": [
+        0.0,
+        975.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V281",
+      "numeric_range": [
+        0.0,
+        22.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V282",
+      "numeric_range": [
+        0.0,
+        32.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V283",
+      "numeric_range": [
+        0.0,
+        68.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V284",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V285",
+      "numeric_range": [
+        0.0,
+        95.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V286",
+      "numeric_range": [
+        0.0,
+        8.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V287",
+      "numeric_range": [
+        0.0,
+        31.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V288",
+      "numeric_range": [
+        0.0,
+        10.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V289",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V290",
+      "numeric_range": [
+        1.0,
+        67.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V291",
+      "numeric_range": [
+        1.0,
+        1055.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V292",
+      "numeric_range": [
+        1.0,
+        323.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V293",
+      "numeric_range": [
+        0.0,
+        869.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V294",
+      "numeric_range": [
+        0.0,
+        1286.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V295",
+      "numeric_range": [
+        0.0,
+        928.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V296",
+      "numeric_range": [
+        0.0,
+        93.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V297",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V298",
+      "numeric_range": [
+        0.0,
+        93.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V299",
+      "numeric_range": [
+        0.0,
+        49.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V300",
+      "numeric_range": [
+        0.0,
+        11.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V301",
+      "numeric_range": [
+        0.0,
+        13.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V302",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V303",
+      "numeric_range": [
+        0.0,
+        20.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V304",
+      "numeric_range": [
+        0.0,
+        16.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V305",
+      "numeric_range": [
+        1.0,
+        2.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V306",
+      "numeric_range": [
+        0.0,
+        108800.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V307",
+      "numeric_range": [
+        0.0,
+        145765.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V308",
+      "numeric_range": [
+        0.0,
+        108800.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V309",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V310",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V311",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V312",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V313",
+      "numeric_range": [
+        0.0,
+        4817.47021484375
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V314",
+      "numeric_range": [
+        0.0,
+        7519.8701171875
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V315",
+      "numeric_range": [
+        0.0,
+        4817.47021484375
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V316",
+      "numeric_range": [
+        0.0,
+        93736.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V317",
+      "numeric_range": [
+        0.0,
+        134021.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V318",
+      "numeric_range": [
+        0.0,
+        98476.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V319",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V320",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V321",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V322",
+      "numeric_range": [
+        0.0,
+        880.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V323",
+      "numeric_range": [
+        0.0,
+        1411.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V324",
+      "numeric_range": [
+        0.0,
+        976.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V325",
+      "numeric_range": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V326",
+      "numeric_range": [
+        0.0,
+        44.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V327",
+      "numeric_range": [
+        0.0,
+        18.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V328",
+      "numeric_range": [
+        0.0,
+        15.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V329",
+      "numeric_range": [
+        0.0,
+        99.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V330",
+      "numeric_range": [
+        0.0,
+        55.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V331",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V332",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V333",
+      "numeric_range": [
+        0.0,
+        160000.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V334",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V335",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V336",
+      "numeric_range": [
+        0.0,
+        55125.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V337",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V338",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    },
+    {
+      "cardinality": null,
+      "dtype": "float64",
+      "name": "V339",
+      "numeric_range": [
+        0.0,
+        104060.0
+      ]
+    }
+  ]
+}

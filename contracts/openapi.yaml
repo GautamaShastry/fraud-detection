@@ -1,0 +1,507 @@
+openapi: 3.1.0
+info:
+  title: Marketplace Fraud Detection API
+  version: 0.1.0-draft
+  description: |
+    Candidate contract (I-05 provisional). A marketplace requests a fraud-risk assessment
+    before its payment-authorization decision. The marketplace, not this service, makes the
+    final payment decision. When an assessment cannot be produced (503/504), integrations must
+    continue checkout to ordinary payment authorization.
+
+    `risk_score` is a 0–100 risk ranking. It is not a fraud probability (I-17 open).
+servers:
+  - url: http://localhost:8000
+    description: Local Docker Compose stack
+security:
+  - oauth2: []
+tags:
+  - name: scoring
+  - name: outcomes
+  - name: health
+paths:
+  /api/v1/fraud/score:
+    post:
+      tags: [scoring]
+      operationId: scoreAttempt
+      summary: Assess fraud risk for a payment attempt
+      security:
+        - oauth2: [fraud:score]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScoreRequest' }
+            examples:
+              minimal: { $ref: '#/components/examples/ScoreRequestMinimal' }
+              full: { $ref: '#/components/examples/ScoreRequestFull' }
+      responses:
+        '200':
+          description: Assessment completed (first evaluation or idempotent replay).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assessment' }
+              examples:
+                ml: { $ref: '#/components/examples/AssessmentMl' }
+        '202':
+          description: The same attempt is still being evaluated by a concurrent request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptInProgress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ScoringUnavailable' }
+        '504': { $ref: '#/components/responses/ScoringUnavailable' }
+  /api/v1/fraud/attempts/{payment_attempt_id}/assessment:
+    get:
+      tags: [scoring]
+      operationId: getAssessmentByAttempt
+      summary: Reconcile an attempt after a lost or timed-out response
+      security:
+        - oauth2: [fraud:score]
+      parameters:
+        - name: payment_attempt_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ExternalId' }
+      responses:
+        '200':
+          description: Established assessment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assessment' }
+        '202':
+          description: Evaluation in progress.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttemptInProgress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /api/v1/fraud/outcomes:
+    post:
+      tags: [outcomes]
+      operationId: reportOutcome
+      summary: Report a payment outcome or later fraud/legitimate evidence
+      description: |
+        Acknowledged only after durable acceptance. Retrying the same `event_id` with an
+        identical body is safe; reusing an `event_id` with a different body is a 409.
+        Event types and label precedence are provisional (I-09 open).
+      security:
+        - oauth2: [fraud:outcomes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OutcomeEvent' }
+            examples:
+              confirmedFraud: { $ref: '#/components/examples/OutcomeConfirmedFraud' }
+      responses:
+        '202':
+          description: Event durably accepted (or already accepted).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OutcomeAccepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /health/live:
+    get:
+      tags: [health]
+      operationId: liveness
+      summary: Process is running
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: readiness
+      summary: Instance may receive traffic (200 ok or degraded; 503 if PostgreSQL is unreachable)
+      security: []
+      responses:
+        '200':
+          description: Ready. `degraded` means Redis is unreachable and scoring uses the fallback.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: Not ready.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /metrics:
+    get:
+      tags: [health]
+      operationId: metrics
+      summary: Prometheus metrics (operational network only; no identifiers or tenant labels)
+      security: []
+      responses:
+        '200':
+          description: Prometheus text exposition format.
+          content:
+            text/plain:
+              schema: { type: string }
+  /api/v1/dashboard/me:
+    get: &dash
+      tags: [dashboard]
+      operationId: dashboardMe
+      summary: Signed-in dashboard user (tenant and role from the OIDC token)
+      security:
+        - oidc: []
+      responses:
+        '200': { $ref: '#/components/responses/DashboardJson' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/dashboard/attempts:
+    get:
+      <<: *dash
+      operationId: dashboardAttempts
+      summary: Tenant-scoped attempt list (viewer+), keyset-paginated
+  /api/v1/dashboard/attempts/{payment_attempt_id}:
+    get:
+      <<: *dash
+      operationId: dashboardAttemptDetail
+      summary: Attempt detail with assessment evidence and outcome events (analyst+)
+      parameters:
+        - name: payment_attempt_id
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/ExternalId' }
+  /api/v1/dashboard/metrics:
+    get:
+      <<: *dash
+      operationId: dashboardMetrics
+      summary: Throughput, scoring modes, latency and confirmed-label-only metrics (viewer+)
+  /api/v1/dashboard/admin/config:
+    get:
+      <<: *dash
+      operationId: dashboardConfig
+      summary: Deployed model/policy versions and deadlines (admin)
+  /api/v1/dashboard/admin/audit:
+    get:
+      <<: *dash
+      operationId: dashboardAudit
+      summary: Dashboard access audit trail (admin)
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth 2.0 client credentials. Bearer JWT (RS256/ES256) validated for signature, issuer,
+        audience, expiry and scope. The tenant is derived from the validated client identity,
+        never from the request payload.
+      flows:
+        clientCredentials:
+          tokenUrl: https://issuer.example.invalid/oauth2/token
+          scopes:
+            fraud:score: Request and reconcile assessments
+            fraud:outcomes: Report outcomes and labels
+            fraud:read: Read tenant data (dashboard)
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: http://localhost:8081/.well-known/openid-configuration
+      description: |
+        Dashboard users sign in with OIDC (authorization code + PKCE). Access tokens carry
+        `tenant_id` and `roles` (viewer, analyst, admin). Locally this is the test-only dev
+        provider; any standards-compliant issuer can replace it.
+  schemas:
+    ExternalId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      pattern: '^[A-Za-z0-9._:-]+$'
+    UtcTimestamp:
+      type: string
+      format: date-time
+      description: RFC 3339 timestamp in UTC (`Z` or `+00:00` offset required).
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)$'
+    ScoreRequest:
+      type: object
+      additionalProperties: false
+      required: [transaction_id, payment_attempt_id, idempotency_key, amount_minor, currency, occurred_at]
+      properties:
+        transaction_id: { $ref: '#/components/schemas/ExternalId' }
+        payment_attempt_id: { $ref: '#/components/schemas/ExternalId' }
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^[A-Za-z0-9._:-]+$'
+        amount_minor:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000
+          description: Amount in the currency's minor unit. Zero is allowed (card verification).
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: ISO 4217 alphabetic code.
+        occurred_at:
+          $ref: '#/components/schemas/UtcTimestamp'
+        customer_id: { $ref: '#/components/schemas/ExternalId' }
+        device_id: { $ref: '#/components/schemas/ExternalId' }
+        payment_method_token:
+          allOf: [{ $ref: '#/components/schemas/ExternalId' }]
+          description: Tokenized payment method reference. Never a PAN.
+        ip_address:
+          type: string
+          anyOf:
+            - format: ipv4
+            - format: ipv6
+        shipping_destination_ref: { $ref: '#/components/schemas/ExternalId' }
+        account_created_at: { $ref: '#/components/schemas/UtcTimestamp' }
+    Recommendation:
+      type: string
+      enum: [PROCEED, VERIFY, RECOMMEND_DECLINE]
+    RiskSignal:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
+        description:
+          type: string
+          maxLength: 256
+      description: Evidence considered by the assessment. Not a causal explanation.
+    Assessment:
+      type: object
+      additionalProperties: false
+      required:
+        - assessment_id
+        - transaction_id
+        - payment_attempt_id
+        - risk_score
+        - recommendation
+        - risk_signals
+        - scoring_mode
+        - model_version
+        - policy_version
+        - evaluated_at
+      properties:
+        assessment_id: { type: string, format: uuid }
+        transaction_id: { $ref: '#/components/schemas/ExternalId' }
+        payment_attempt_id: { $ref: '#/components/schemas/ExternalId' }
+        risk_score: { type: integer, minimum: 0, maximum: 100 }
+        recommendation: { $ref: '#/components/schemas/Recommendation' }
+        risk_signals:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/RiskSignal' }
+        scoring_mode:
+          type: string
+          enum: [ML, FALLBACK]
+          description: FALLBACK assessments never return RECOMMEND_DECLINE (I-08 provisional).
+        model_version: { type: string, minLength: 1, maxLength: 64 }
+        policy_version: { type: string, minLength: 1, maxLength: 64 }
+        evaluated_at: { $ref: '#/components/schemas/UtcTimestamp' }
+    AttemptInProgress:
+      type: object
+      additionalProperties: false
+      required: [status, payment_attempt_id, retry_after_ms]
+      properties:
+        status: { const: IN_PROGRESS }
+        payment_attempt_id: { $ref: '#/components/schemas/ExternalId' }
+        retry_after_ms: { type: integer, minimum: 0, maximum: 5000 }
+    OutcomeEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, payment_attempt_id, event_type, source, occurred_at]
+      properties:
+        event_id: { $ref: '#/components/schemas/ExternalId' }
+        payment_attempt_id: { $ref: '#/components/schemas/ExternalId' }
+        transaction_id: { $ref: '#/components/schemas/ExternalId' }
+        event_type:
+          type: string
+          enum:
+            - AUTHORIZATION_APPROVED
+            - AUTHORIZATION_DECLINED
+            - CHARGEBACK_REPORTED
+            - CONFIRMED_FRAUD
+            - CONFIRMED_LEGITIMATE
+            - LABEL_RETRACTED
+          description: |
+            AUTHORIZATION_APPROVED is not evidence of legitimacy. Only CONFIRMED_* events carry
+            labels. Precedence and maturity rules are I-09 (open).
+        source:
+          type: string
+          enum: [MARKETPLACE, PROCESSOR, ISSUER, MANUAL_REVIEW]
+        occurred_at:
+          $ref: '#/components/schemas/UtcTimestamp'
+        reason_code:
+          type: string
+          maxLength: 64
+          pattern: '^[A-Za-z0-9._:-]+$'
+    OutcomeAccepted:
+      type: object
+      additionalProperties: false
+      required: [event_id, status, received_at]
+      properties:
+        event_id: { $ref: '#/components/schemas/ExternalId' }
+        status: { type: string, enum: [ACCEPTED, DUPLICATE] }
+        received_at: { $ref: '#/components/schemas/UtcTimestamp' }
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok, degraded, unavailable] }
+        checks:
+          type: object
+          additionalProperties: { type: string, enum: [ok, unavailable] }
+    Problem:
+      type: object
+      description: RFC 9457 problem details with a stable machine-readable `code`.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code:
+          type: string
+          enum:
+            - UNAUTHENTICATED
+            - FORBIDDEN
+            - VALIDATION_ERROR
+            - IDEMPOTENCY_CONFLICT
+            - EVENT_ID_CONFLICT
+            - PAYLOAD_TOO_LARGE
+            - RATE_LIMITED
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - SCORING_UNAVAILABLE
+            - SCORING_DEADLINE_EXCEEDED
+            - SERVICE_UNAVAILABLE
+            - INTERNAL_ERROR
+        request_id: { type: string }
+        retryable: { type: boolean }
+        errors:
+          type: array
+          description: Field-level validation failures. Submitted values are never echoed.
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+  responses:
+    DashboardJson:
+      description: Dashboard data (internal UI contract; shape defined in src/dashboard/routes.py).
+      content:
+        application/json:
+          schema: { type: object }
+    Unauthorized:
+      description: Missing or invalid credentials. Never bypassed.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Valid token without the required scope or tenant mapping.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Key or event ID reused with a different request fingerprint.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: No such attempt for this tenant.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: Request body exceeds the size limit.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ValidationFailed:
+      description: Request body failed schema or semantic validation (including clock skew).
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RateLimited:
+      description: Per-tenant rate limit exceeded.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ScoringUnavailable:
+      description: |
+        No valid assessment could be produced within the deadline. No risk score is returned.
+        Continue checkout to ordinary payment authorization.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ServiceUnavailable:
+      description: The request was not durably accepted; retry later.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  examples:
+    ScoreRequestMinimal:
+      value:
+        transaction_id: order-1001
+        payment_attempt_id: pa-1001-1
+        idempotency_key: idem-1001-1-a
+        amount_minor: 4599
+        currency: USD
+        occurred_at: '2026-10-28T12:00:00Z'
+    ScoreRequestFull:
+      value:
+        transaction_id: order-1002
+        payment_attempt_id: pa-1002-1
+        idempotency_key: idem-1002-1-a
+        amount_minor: 129900
+        currency: EUR
+        occurred_at: '2026-10-28T12:00:05.250Z'
+        customer_id: cust-77
+        device_id: dev-abc123
+        payment_method_token: tok_9f8e7d
+        ip_address: 203.0.113.7
+        shipping_destination_ref: ship-ref-55
+        account_created_at: '2026-01-02T08:30:00Z'
+    AssessmentMl:
+      value:
+        assessment_id: 6f1c1d2e-8a5b-4c7d-9e0f-1a2b3c4d5e6f
+        transaction_id: order-1002
+        payment_attempt_id: pa-1002-1
+        risk_score: 72
+        recommendation: VERIFY
+        risk_signals:
+          - code: DEVICE_DISTINCT_PAYMENT_METHODS_5M
+            description: Several distinct payment methods used from this device in 5 minutes
+        scoring_mode: ML
+        model_version: example-model-0
+        policy_version: example-policy-0
+        evaluated_at: '2026-10-28T12:00:05.310Z'
+    OutcomeConfirmedFraud:
+      value:
+        event_id: evt-555
+        payment_attempt_id: pa-1002-1
+        transaction_id: order-1002
+        event_type: CONFIRMED_FRAUD
+        source: MANUAL_REVIEW
+        occurred_at: '2026-11-10T09:00:00Z'

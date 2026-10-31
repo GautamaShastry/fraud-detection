@@ -1,0 +1,26 @@
+{
+  "run_id": "post-review-50",
+  "attempts_stored": 2956,
+  "stored_without_client_200": 161,
+  "k6_requests_sent": 2968,
+  "k6_outcomes": {
+    "ml": 2758,
+    "fallback": 37,
+    "unavailable": 173,
+    "other": 0,
+    "dropped_iterations": 33
+  },
+  "db_attempts_by_state": {
+    "COMPLETED:FALLBACK": 91,
+    "COMPLETED:ML": 2763,
+    "IN_PROGRESS:-": 47,
+    "UNAVAILABLE:-": 55
+  },
+  "checks": {
+    "ml_200s_recorded": true,
+    "fallback_200s_recorded": true,
+    "no_phantom_attempts": true,
+    "unstored_were_not_successes": true
+  },
+  "ok": true
+}

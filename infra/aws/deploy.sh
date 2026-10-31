@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Host-side release with automatic rollback (T-502). Installed at /opt/fraud/deploy.sh and run by
 # the deploy workflow via SSM:   deploy.sh <registry/repo@sha256:...> <model-manifest-sha256> <s3-uri>
-# The previous release keeps serving until the new one reports ready; otherwise it is restored.
+# If the new release does not report ready, the previous one is restored. Compose replaces the
+# running containers first, so expect an outage during a failed release (see the rollback runbook).
 set -euo pipefail
 IMAGE=$1
 MODEL_SHA=$2
 MODEL_S3=$3
 cd /opt/fraud
-[[ "$IMAGE" =~ @sha256:[0-9a-f]{64}$ ]] || { echo "refusing a non-digest image reference"; exit 1; }
+[[ "$IMAGE" =~ ^[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}$ ]] || { echo "refusing a non-digest image reference"; exit 1; }
 
 previous=""
 [ -f current-release.env ] && previous=current-release.env

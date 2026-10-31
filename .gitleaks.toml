@@ -1,9 +1,3 @@
-# gitleaks configuration: default rules plus a narrow allowlist for one historical fixture.
+# gitleaks configuration: default rules, no exceptions.
 [extend]
 useDefault = true
-
-[allowlist]
-description = "Historical test-only fixture (deleted; dev users are now generated locally)"
-# Commit 47e1a8f contained SHA-256 hashes of local-only dashboard test passwords in this file.
-# The file no longer exists, so this entry can only match history.
-paths = ['''^infra/local/dev-users\.json$''']

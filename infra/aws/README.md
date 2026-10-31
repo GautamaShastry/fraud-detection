@@ -22,6 +22,9 @@ No SSH: administration goes through SSM. Port 8000 is closed until you set `Allo
 1. `aws cloudformation deploy --template-file infra/aws/template.yaml --stack-name fraud-demo --capabilities CAPABILITY_NAMED_IAM --parameter-overrides AlertEmail=<you> GitHubRepo=<owner/repo>`
 2. Store secrets as SSM SecureString parameters under `/fraud/*`, then write `/opt/fraud/secrets.env`
    on the host (via SSM Session Manager). Copy `compose.prod.yaml` and `deploy.sh` to `/opt/fraud/`.
+   Generate every value fresh for the cloud with `openssl rand -hex 32` (database passwords go into
+   a URL, so avoid base64). Never reuse a value from local development, tests or old commits, and
+   never commit one.
 3. Set the GitHub repository variables named in `.github/workflows/*.yml`, plus protected
    environments `release`, `production` and `ml-training` with required reviewers.
 4. Run the `release-image` workflow, then `deploy` with the image digest and the promoted model's

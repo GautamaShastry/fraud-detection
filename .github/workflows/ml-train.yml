@@ -37,12 +37,20 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_TRAINING_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+      # Values reach the shell only through env and stay single arguments: none can run a command.
       - name: Configure (and submit only if approved)
+        env:
+          TRAINING_IMAGE: ${{ vars.TRAINING_IMAGE }}
+          EXECUTION_ROLE: ${{ vars.SAGEMAKER_EXECUTION_ROLE_ARN }}
+          MODEL_OUTPUT_S3: ${{ vars.MODEL_OUTPUT_S3 }}
+          HOURS: ${{ inputs.hours }}
+          INSTANCE_TYPE: ${{ inputs.instance_type }}
+          APPROVE_COST_USD: ${{ inputs.approve_cost_usd }}
+          APPROVER: ${{ github.actor }}
         run: |
-          ARGS="--image ${{ vars.TRAINING_IMAGE }} --role ${{ vars.SAGEMAKER_EXECUTION_ROLE_ARN }} \
-                --output ${{ vars.MODEL_OUTPUT_S3 }} --git-commit ${{ github.sha }} \
-                --hours ${{ inputs.hours }} --instance-type ${{ inputs.instance_type }}"
-          if [ -n "${{ inputs.approve_cost_usd }}" ]; then
-            ARGS="$ARGS --approve-cost ${{ inputs.approve_cost_usd }} --approver ${{ github.actor }}"
+          args=(--image "$TRAINING_IMAGE" --role "$EXECUTION_ROLE" --output "$MODEL_OUTPUT_S3"
+                --git-commit "$GITHUB_SHA" --hours "$HOURS" --instance-type "$INSTANCE_TYPE")
+          if [ -n "$APPROVE_COST_USD" ]; then
+            args+=(--approve-cost "$APPROVE_COST_USD" --approver "$APPROVER")
           fi
-          python -m ml.sagemaker_job $ARGS
+          python -m ml.sagemaker_job "${args[@]}"

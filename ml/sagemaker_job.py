@@ -130,6 +130,8 @@ class CostNotApprovedError(Exception):
 def check_approval(spec: JobSpec, approved_usd: float | None, approver: str | None) -> None:
     if approved_usd is None or not approver:
         raise CostNotApprovedError("No cost approval given; dry run only")
+    if not math.isfinite(approved_usd):  # NaN compares false to everything, so it would pass
+        raise CostNotApprovedError("Approved budget must be a finite amount")
     if approved_usd < spec.estimated_cost_usd:
         raise CostNotApprovedError(
             f"Approved budget ${approved_usd:.2f} is below the estimate "

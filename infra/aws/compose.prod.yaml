@@ -44,9 +44,10 @@ services:
     <<: *app
     depends_on:
       postgres: { condition: service_healthy }
-    command: ["sh", "-c", "rm -rf /tmp/prometheus && mkdir -p /tmp/prometheus && exec uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log --workers 2"]
+    # The DSN is built here because only a shell expands the password from secrets.env. Values
+    # must be URL-safe (openssl rand -hex 32).
+    command: ["sh", "-c", "export FRAUD_POSTGRES_DSN=postgresql://fraud_app:$${FRAUD_APP_DB_PASSWORD}@postgres:5432/fraud; rm -rf /tmp/prometheus && mkdir -p /tmp/prometheus && exec uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log --workers 2"]
     environment:
-      FRAUD_POSTGRES_DSN: postgresql://fraud_app:$${FRAUD_APP_DB_PASSWORD}@postgres:5432/fraud
       FRAUD_REDIS_URL: redis://redis:6379/0
       FRAUD_SCORER_MODE: model
       FRAUD_MODEL_DIR: /models/current
@@ -59,9 +60,7 @@ services:
     <<: *app
     depends_on:
       postgres: { condition: service_healthy }
-    command: ["python", "-m", "src.events.worker"]
-    environment:
-      FRAUD_WORKER_POSTGRES_DSN: postgresql://fraud_worker:$${FRAUD_WORKER_DB_PASSWORD}@postgres:5432/fraud
+    command: ["sh", "-c", "export FRAUD_WORKER_POSTGRES_DSN=postgresql://fraud_worker:$${FRAUD_WORKER_DB_PASSWORD}@postgres:5432/fraud; exec python -m src.events.worker"]
 
 volumes:
   pgdata:

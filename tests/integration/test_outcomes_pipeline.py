@@ -242,6 +242,70 @@ async def test_archive_export_verify_and_recover_from_interrupted_upload(
     assert report["outbox_unpublished"] == 0
 
 
+async def test_retry_after_new_rows_and_a_new_day_reuses_the_same_objects(
+    live_client, auth_header, worker_pool, tmp_path, database
+):
+    """Review finding #6: a retried export must not strand the first attempt's objects."""
+
+    def score() -> None:
+        response = live_client.post("/api/v1/fraud/score", json=now_request(), headers=auth_header)
+        assert response.status_code == 200
+
+    for _ in range(3):
+        score()
+    now = datetime.now(UTC)
+    root = tmp_path / "archive"
+    with pytest.raises(OSError):
+        await export_batch(worker_pool, FlakyStore(root, fail_on=".manifest.json"), now)
+    store = FileArchiveStore(root)
+    stranded = store.list()
+    assert len(stranded) == 1  # the parquet landed; the crash was before the manifest
+
+    score()  # a new row arrives before the retry, and the retry runs on a later day
+
+    first = await export_batch(worker_pool, store, now + timedelta(days=2))
+    assert first.rows == 3  # exactly the original rows
+    assert set(stranded) <= set(store.list())
+    assert len(store.list()) == 2  # same parquet key, plus its manifest
+
+    second = await export_batch(worker_pool, store, now + timedelta(days=2))
+    assert second.rows == 1
+    assert (await export_batch(worker_pool, store, now + timedelta(days=2))).rows == 0
+    assert len(store.list()) == 4
+
+    with psycopg.connect(database["owner"], row_factory=dict_row) as conn:
+        report = reconcile(conn, store)
+    assert report["archive_orphan_objects"] == [] and report["ok"], report["problems"]
+
+
+async def test_reconciliation_fails_on_orphans_but_not_on_an_export_in_flight(
+    live_client, auth_header, worker_pool, tmp_path, database
+):
+    assert (
+        live_client.post("/api/v1/fraud/score", json=now_request(), headers=auth_header).status_code
+        == 200
+    )
+    root = tmp_path / "archive"
+    with pytest.raises(OSError):
+        await export_batch(
+            worker_pool, FlakyStore(root, fail_on=".manifest.json"), datetime.now(UTC)
+        )
+    store = FileArchiveStore(root)
+    with psycopg.connect(database["owner"], row_factory=dict_row) as conn:
+        in_flight = reconcile(conn, store)
+    assert in_flight["archive_orphan_objects"] == []  # will be finished by the next run
+
+    await export_batch(worker_pool, store, datetime.now(UTC))
+    store.put("assessments/tenant=x/date=2026-01-01/stray.parquet", b"stray")
+    with psycopg.connect(database["owner"], row_factory=dict_row) as conn:
+        report = reconcile(conn, store)
+    assert report["archive_orphan_objects"] == [
+        "assessments/tenant=x/date=2026-01-01/stray.parquet"
+    ]
+    assert not report["ok"]
+    assert "archive contains objects with no batch" in report["problems"]
+
+
 async def test_retention_purges_only_archived_rows(
     live_client, auth_header, worker_pool, owner_conn, tmp_path
 ):

@@ -1,12 +1,16 @@
 """Durable history export (FR-09, T-204; I-13 provisional: Parquet + manifest).
 
-Each export batch drains a range of outbox rows into one Parquet object per (tenant, topic) with
-a JSON manifest holding the row count and SHA-256. The batch, its ledger rows and the outbox
-"published" marks commit in one transaction *after* the objects are written, so:
+Each export batch drains a set of outbox rows into one Parquet object per (tenant, topic) with
+a JSON manifest holding the row count and SHA-256. Rows are assigned to a batch in the database
+*before* anything is written, and the object key derives only from that batch. The batch, its
+ledger rows and the outbox "published" marks commit in one transaction *after* the objects are
+written, so:
 
-* a crash before commit leaves the rows unpublished; the next run re-exports them (object keys
-  are derived from the outbox id range, so a retry of the same range overwrites the same keys);
-* objects with no committed batch row are orphans, reported by reconciliation, never trusted;
+* a crash before commit leaves the rows assigned but unpublished; the next run exports exactly
+  those rows again and overwrites the same keys, however much later it runs and whatever new
+  rows have arrived since;
+* an object with neither a committed batch nor an in-flight one is an orphan: reconciliation
+  fails on it, and it is never trusted;
 * retention may delete operational rows only once they appear in the archive ledger.
 """
 
@@ -20,14 +24,14 @@ import tempfile
 import urllib.parse
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from src.storage.db import Pool
+from src.storage.db import Conn, Pool
 from src.telemetry import metrics
 
 ARCHIVE_SCHEMA_VERSION = "archive-1.0.0"
@@ -158,49 +162,79 @@ WHERE tenant_id = %s AND event_id = ANY(%s::text[])
 """
 
 
+async def _assigned_rows(conn: Conn) -> list[dict[str, Any]]:
+    cur = await conn.execute(
+        "SELECT id, tenant_id, topic, payload, created_at, batch_id FROM outbox "
+        "WHERE published_at IS NULL AND batch_id IS NOT NULL ORDER BY id"
+    )
+    return list(await cur.fetchall())
+
+
+async def _assign_batches(conn: Conn, limit: int) -> None:
+    """Fix which rows form each batch, so that a retry exports the same rows under the same key."""
+    async with conn.transaction():
+        cur = await conn.execute(
+            "SELECT id, tenant_id, topic FROM outbox WHERE published_at IS NULL "
+            "AND batch_id IS NULL ORDER BY id LIMIT %s FOR UPDATE SKIP LOCKED",
+            (limit,),
+        )
+        groups: dict[tuple[str, str], list[int]] = defaultdict(list)
+        for row in await cur.fetchall():
+            groups[(row["tenant_id"], row["topic"])].append(row["id"])
+        for (tenant_id, topic), ids in groups.items():
+            kind = topic.split(".")[0]
+            batch_id = f"{kind}-{tenant_id}-{min(ids):012d}-{max(ids):012d}"
+            await conn.execute(
+                "UPDATE outbox SET batch_id = %s WHERE id = ANY(%s)", (batch_id, ids)
+            )
+
+
 async def export_batch(
     pool: Pool, store: ArchiveStore, now: datetime, limit: int = 200
 ) -> ExportResult:
     """Export up to `limit` unpublished outbox rows. Returns what was committed.
 
-    Objects are written *before* any lock is taken; a short transaction then re-checks that the
-    rows are still unpublished and records the batch. Slow storage therefore never holds
-    database locks or a long transaction open. If another exporter committed the same rows
-    first, this run's objects are identical (deterministic keys) or reported as orphans.
+    Batches left unfinished by an earlier run are finished first; new rows are assigned only
+    when there are none. Objects are written *before* any lock is taken; a short transaction then
+    re-checks that the rows are still unpublished and records the batch. Slow storage therefore
+    never holds database locks or a long transaction open. If another exporter is working on the
+    same batch, both write the same keys and only one commits.
     """
     async with pool.connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, tenant_id, topic, payload FROM outbox WHERE published_at IS NULL "
-            "ORDER BY id LIMIT %s",
-            (limit,),
-        )
-        outbox = list(await cur.fetchall())
+        outbox = await _assigned_rows(conn)
+        if not outbox:
+            await _assign_batches(conn, limit)
+            outbox = await _assigned_rows(conn)
         if not outbox:
             return ExportResult([], 0)
 
-        groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in outbox:
-            groups[(row["tenant_id"], row["topic"])].append(row)
+            groups[row["batch_id"]].append(row)
 
         staged = []
-        for (tenant_id, topic), items in sorted(groups.items()):
+        for batch_id, items in sorted(groups.items()):
+            tenant_id, topic = items[0]["tenant_id"], items[0]["topic"]
             ids = [r["id"] for r in items]
             if topic == "assessment.recorded":
+                key_column = "assessment_id"
                 keys = [r["payload"]["assessment_id"] for r in items]
                 cur = await conn.execute(_ASSESSMENT_ROWS, (tenant_id, keys))
             elif topic == "outcome.processed":
+                key_column = "event_id"
                 keys = [r["payload"]["event_id"] for r in items]
                 cur = await conn.execute(_OUTCOME_ROWS, (tenant_id, keys))
             else:
                 raise ValueError(f"Unknown outbox topic {topic}")
-            rows = list(await cur.fetchall())
+            rows = sorted(await cur.fetchall(), key=lambda r: r[key_column])
             if len(rows) != len(items):
                 raise RuntimeError(
                     f"Outbox references {len(items)} rows but {len(rows)} exist ({topic})"
                 )
             kind = topic.split(".")[0]
-            batch_id = f"{kind}-{tenant_id}-{min(ids):012d}-{max(ids):012d}"
-            object_key = f"{kind}s/tenant={tenant_id}/date={now:%Y-%m-%d}/{batch_id}.parquet"
+            # The date comes from the rows, not the clock, so a retry on a later day keeps the key.
+            date = min(r["created_at"] for r in items).astimezone(UTC)
+            object_key = f"{kind}s/tenant={tenant_id}/date={date:%Y-%m-%d}/{batch_id}.parquet"
             manifest_key = object_key.removesuffix(".parquet") + ".manifest.json"
             data = _parquet(rows)
             digest = hashlib.sha256(data).hexdigest()
@@ -226,8 +260,8 @@ async def export_batch(
             async with conn.transaction():
                 cur = await conn.execute(
                     "SELECT id FROM outbox WHERE id = ANY(%s) AND published_at IS NULL "
-                    "FOR UPDATE SKIP LOCKED",
-                    (ids,),
+                    "AND batch_id = %s FOR UPDATE SKIP LOCKED",
+                    (ids, batch_id),
                 )
                 if len(await cur.fetchall()) != len(ids):
                     continue  # another exporter owns or already published these rows

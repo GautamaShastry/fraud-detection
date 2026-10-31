@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from src.api.auth import RemoteKeys, TokenVerifier
+from src.api.auth import KeysUnavailableError, RemoteKeys, TokenVerifier
 from src.api.problems import ProblemError
 from tests.conftest import AUDIENCE, ISSUER
 
@@ -207,3 +207,83 @@ async def test_malformed_token_is_rejected_without_a_download(jwks, monkeypatch)
     with pytest.raises(ProblemError):
         await verifier.averify("not-a-token")
     assert not hops and issuer.calls == 0
+
+
+def test_empty_key_set_clears_the_cache(jwks):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys = _keys(issuer, clock)
+    assert keys.get("ec-1") is not None
+    issuer.jwks = {"keys": []}  # the issuer revoked everything
+    clock.now += 61
+    assert keys.get("unknown") is None
+    assert keys.get("ec-1") is None
+
+
+def test_malformed_key_document_is_a_failure_not_a_revocation(jwks):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys = _keys(issuer, clock)
+    assert keys.get("ec-1") is not None
+    issuer.jwks = {"not": "a jwks"}
+    clock.now += 61
+    assert keys.get("unknown") is None
+    assert keys.get("ec-1") is not None
+
+
+def test_new_key_arriving_during_a_download_waits_for_the_result(jwks):
+    issuer = FakeIssuer({"keys": [k for k in jwks["keys"] if k["kid"] == "rsa-1"]})
+    clock = Clock()
+    keys = RemoteKeys(
+        "https://issuer.test/jwks", min_refresh_s=60, wait_s=5.0, fetch=issuer, clock=clock
+    )
+    assert keys.get("rsa-1") is not None
+
+    issuer.jwks, issuer.delay_s = jwks, 0.2  # the issuer publishes ec-1; the download is slow
+    clock.now += 61
+    found: dict = {}
+    first = threading.Thread(target=lambda: found.update(first=keys.get("other")))
+    first.start()
+    time.sleep(0.05)  # now in flight, so a refresh is no longer due
+    assert keys.needs_io("ec-1")
+    assert keys.get("ec-1") is not None  # waited; before the fix this was None and a 401
+    first.join()
+    assert issuer.calls == 2
+
+
+def test_download_slower_than_the_wait_is_unavailable_not_unknown(jwks):
+    issuer = FakeIssuer({"keys": [k for k in jwks["keys"] if k["kid"] == "rsa-1"]})
+    clock = Clock()
+    keys = RemoteKeys(
+        "https://issuer.test/jwks", min_refresh_s=60, wait_s=0.01, fetch=issuer, clock=clock
+    )
+    assert keys.get("rsa-1") is not None
+    issuer.delay_s = 0.5
+    clock.now += 61
+    first = threading.Thread(target=keys.get, args=("other",))
+    first.start()
+    time.sleep(0.05)
+    with pytest.raises(KeysUnavailableError):
+        keys.get("ec-1")
+    first.join()
+
+
+def test_first_download_failing_is_a_retryable_503_not_a_rejection(jwks, make_token):
+    issuer, clock = FakeIssuer(jwks, fail=True), Clock()
+    verifier = TokenVerifier(issuer=ISSUER, audience=AUDIENCE, keys=_keys(issuer, clock))
+    for _ in range(5):
+        with pytest.raises(ProblemError) as exc:
+            verifier.verify(make_token())
+        assert exc.value.status == 503 and exc.value.retryable
+    assert issuer.calls == 1  # still rate-limited
+
+    issuer.fail = False
+    clock.now += 61
+    assert verifier.verify(make_token()).client_id == "merchant-a"
+
+
+def test_unknown_kid_is_still_a_401_once_keys_have_loaded(jwks, make_token):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    verifier = TokenVerifier(issuer=ISSUER, audience=AUDIENCE, keys=_keys(issuer, clock))
+    assert verifier.verify(make_token()).client_id == "merchant-a"
+    with pytest.raises(ProblemError) as exc:
+        verifier.verify(make_token(kid="forged"))
+    assert exc.value.status == 401

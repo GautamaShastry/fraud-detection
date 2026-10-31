@@ -65,6 +65,10 @@ def forbidden(detail: str) -> ProblemError:
     return ProblemError(403, "FORBIDDEN", "Forbidden", detail)
 
 
+class KeysUnavailableError(Exception):
+    """Signing keys can't be determined right now: the caller should retry, not be rejected."""
+
+
 class KeySource(Protocol):
     def needs_io(self, kid: str) -> bool: ...
 
@@ -117,7 +121,12 @@ class RemoteKeys:
     known kid starts a refresh in the background and is answered from the cache, so no request
     waits on the issuer. A revoked key therefore stops validating shortly after `max_age_s`. If
     the issuer is unreachable the cached keys keep working (availability over revocation), and
-    attempts stay limited to one per `min_refresh_s`.
+    attempts stay limited to one per `min_refresh_s`. An explicitly empty key set is an answer,
+    not a failure: it clears the cache.
+
+    An unknown kid arriving during a download may be the new key, so it waits up to `wait_s` for
+    the result. KeysUnavailableError means the answer isn't known (still downloading, or no
+    download has ever succeeded); only a settled "not in the set" returns None.
     """
 
     def __init__(
@@ -127,6 +136,7 @@ class RemoteKeys:
         min_refresh_s: float = 60.0,
         max_age_s: float = 300.0,
         timeout_s: float = 3.0,
+        wait_s: float = 0.1,
         fetch: Callable[[str, float], Mapping[str, Any]] = _fetch_jwks,
         clock: Callable[[], float] = time.monotonic,
         spawn: Callable[[Callable[[], None]], None] = _in_background,
@@ -135,41 +145,56 @@ class RemoteKeys:
         self._min_refresh_s = min_refresh_s
         self._max_age_s = max_age_s
         self._timeout_s = timeout_s
+        self._wait_s = wait_s
         self._fetch = fetch
         self._clock = clock
         self._spawn = spawn
         self._keys: dict[str, jwt.PyJWK] = {}
         self._loaded_at: float | None = None
         self._last_attempt: float | None = None
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()  # Guards the decision to start a download, never the I/O
+        self._idle = threading.Event()  # Clear while a download is in flight
+        self._idle.set()
 
     def needs_io(self, kid: str) -> bool:
-        """Whether get(kid) would block on a download. Stale known keys refresh in background."""
-        return kid not in self._keys and self._refresh_due()
+        """Whether get(kid) could block. Stale known keys refresh in the background."""
+        return kid not in self._keys and (not self._idle.is_set() or self._refresh_due())
 
     def get(self, kid: str) -> jwt.PyJWK | None:
         key = self._keys.get(kid)
         if key is not None:
-            if self._stale() and self._refresh_due():
-                self._last_attempt = self._clock()
+            if self._stale() and self._begin_refresh():
                 self._spawn(self._refresh)
             return key
-        if not self._refresh_due():
-            return None
-        with self._lock:
-            # Another thread may have refreshed while this one waited for the lock.
-            if kid in self._keys or not self._refresh_due():
-                return self._keys.get(kid)
-            self._last_attempt = self._clock()
+        if self._begin_refresh():
             self._refresh()
-            return self._keys.get(kid)
+        elif not self._idle.wait(self._wait_s if not self._idle.is_set() else 0):
+            if kid in self._keys:
+                return self._keys[kid]
+            raise KeysUnavailableError
+        key = self._keys.get(kid)
+        if key is None and self._loaded_at is None:
+            raise KeysUnavailableError  # Nothing has ever loaded, so this kid proves nothing.
+        return key
+
+    def _begin_refresh(self) -> bool:
+        with self._lock:
+            if not self._idle.is_set() or not self._refresh_due():
+                return False
+            self._last_attempt = self._clock()
+            self._idle.clear()
+            return True
 
     def _refresh(self) -> None:
         try:
-            self._keys = StaticKeys(self._fetch(self._url, self._timeout_s)).keys_by_id
+            jwks = self._fetch(self._url, self._timeout_s)
+            # PyJWT rejects an empty set, but an issuer that revoked every key must be believed.
+            self._keys = {} if jwks.get("keys") == [] else StaticKeys(jwks).keys_by_id
             self._loaded_at = self._clock()
         except Exception as exc:  # noqa: BLE001 - keep serving cached keys
             logger.warning("JWKS refresh failed (%s)", type(exc).__name__)
+        finally:
+            self._idle.set()
 
     def _stale(self) -> bool:
         return self._loaded_at is None or self._clock() - self._loaded_at >= self._max_age_s
@@ -197,7 +222,17 @@ class TokenVerifier:
         alg, kid = header.get("alg"), header.get("kid")
         if alg not in ALLOWED_ALGORITHMS:
             raise unauthenticated("Unsupported token algorithm")
-        key = self.keys.get(kid) if isinstance(kid, str) else None
+        try:
+            key = self.keys.get(kid) if isinstance(kid, str) else None
+        except KeysUnavailableError as exc:
+            # Not the caller's fault, and not a rejection: merchants fail open and may retry.
+            raise ProblemError(
+                503,
+                "SERVICE_UNAVAILABLE",
+                "Service unavailable",
+                "Signing keys are not available",
+                retryable=True,
+            ) from exc
         if key is None:
             raise unauthenticated("Unknown signing key")
         # Bind the algorithm to the key type to prevent algorithm-substitution attacks.

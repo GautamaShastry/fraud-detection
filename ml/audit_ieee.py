@@ -70,7 +70,7 @@ def main() -> None:
         "online features (including F01) do not exist in it. IEEE-CIS is used for an offline "
         "benchmark of the modeling approach only (see `ieee_benchmark.md`).",
     ]
-    (args.out / "ieee_dataset_card.md").write_text("\n".join(lines) + "\n")
+    (args.out / "ieee_dataset_card.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:9]))
 
 

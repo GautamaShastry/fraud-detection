@@ -14,4 +14,7 @@ payment authorization *without* fraud screening. Auth is never bypassed.
    reason. `ArtifactError` at startup means the model failed verification and the container exited.
 4. Deadline exceeded: check "Dependency latency p95". Database round trips are the usual cause.
 5. Recovery check: unavailable attempts are marked `UNAVAILABLE` and are re-scored on retry with
-   the same request; run `python -m src.events.reconcile` to confirm nothing is stuck `IN_PROGRESS`.
+   the same request. Run `python -m src.events.reconcile --dsn <owner or worker DSN>`. Its `ok` does
+   not cover `IN_PROGRESS`, so also read `attempts_by_status`, and check the lease age directly:
+   `SELECT count(*) FROM attempts WHERE status = 'IN_PROGRESS' AND lease_expires_at < now()`. Expired
+   leases are harmless (a retry takes them over) and are deleted at retention.

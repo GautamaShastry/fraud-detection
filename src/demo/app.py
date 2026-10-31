@@ -121,7 +121,7 @@ def create_app(
             async with asyncio.timeout(timeout_s):  # total budget for the scoring call
                 r = await client.post("/api/v1/fraud/score", json=body, headers=headers)
             status, response = r.status_code, r.json()
-        except (httpx.HTTPError, TimeoutError) as exc:
+        except (httpx.HTTPError, TimeoutError, ValueError) as exc:  # ValueError: not JSON
             error = type(exc).__name__
         elapsed_ms = (time.perf_counter() - started) * 1000
 

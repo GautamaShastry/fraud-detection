@@ -17,7 +17,6 @@ from pathlib import Path
 
 import psycopg
 
-
 _CLIENT_200 = re.compile(r"ASSESSED (ML|FALLBACK) ([^\s\"]+)")
 
 

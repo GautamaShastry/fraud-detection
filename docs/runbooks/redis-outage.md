@@ -2,8 +2,9 @@
 
 **Symptoms:** `FallbackRateHigh`, `fraud_primary_failures_total{reason="ConnectionError"|"timeout"}`.
 
-Expected behavior: the primary path needs F01 from Redis, so every request degrades to the
-validated FALLBACK scorer (no velocity features, never recommends decline). Assessments are
+Expected behavior: the primary path needs F01 from Redis, so requests that carry both a device
+and a payment method degrade to the validated FALLBACK scorer. Requests missing either skip Redis
+and can still get ML. FALLBACK uses no velocity features and never recommends decline. Assessments are
 still recorded; responses say `"scoring_mode": "FALLBACK"`. `GET /health/ready` returns 200 with
 `"status": "degraded"`, so instances stay in service.
 

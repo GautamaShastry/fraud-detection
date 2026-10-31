@@ -69,11 +69,12 @@ def featurize(
                     occurred_at=occurred,
                     account_created_at=_ts(account) if account else None,
                     f01=value,
-                    has_customer="customer_id" in req,
-                    has_device="device_id" in req,
-                    has_payment_method="payment_method_token" in req,
-                    has_ip="ip_address" in req,
-                    has_shipping="shipping_destination_ref" in req,
+                    # An explicit null is missing, exactly as online.
+                    has_customer=req.get("customer_id") is not None,
+                    has_device=req.get("device_id") is not None,
+                    has_payment_method=req.get("payment_method_token") is not None,
+                    has_ip=req.get("ip_address") is not None,
+                    has_shipping=req.get("shipping_destination_ref") is not None,
                 )
             )
         )

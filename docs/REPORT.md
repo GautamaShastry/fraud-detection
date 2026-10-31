@@ -144,7 +144,7 @@ Optimizations made, each verified with a measurement:
 
 | PRD target | Status |
 | --- | --- |
-| P95 < 100 ms and P99 < 200 ms at 2,000 assessments/s | **Untested** at that rate; locally met only at ≤ 50/s and only at p95 |
+| P95 < 100 ms and P99 < 200 ms at 2,000 assessments/s | **Untested** at that rate. Locally, ML assessments met both at ≤ 50/s, with 5–18% of requests getting no assessment at those rates |
 | 10M unique-attempt volume run | **Untested** (needs a cloud run; reconciliation tooling exists and passes locally) |
 | 99.9% primary availability over 30 days | **Untested** (no 30-day run) |
 

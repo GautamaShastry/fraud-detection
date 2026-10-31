@@ -43,6 +43,7 @@ Approved Decisions 001–019 live in the owner's decision log, which is not in t
 | Archive objects written before taking locks; short commit transaction afterwards | Holding locks during slow object writes stalled API commits | `src/events/archive.py` |
 | Redis circuit breaker (2 s) | A dead Redis should cost one timeout, not one per request | `src/features/velocity.py` |
 | Tenant lookup bounded to 100 ms | Identity resolution must not consume the merchant's checkout budget | `src/api/auth.py` |
+| JWKS keys refresh in the background after 5 minutes; at most one download per minute; a failed refresh keeps the cached keys | Bounds how long a revoked key is trusted without making requests wait on the issuer. If the issuer is down, availability wins over revocation | `RemoteKeys` |
 | Synthetic-only artifacts need an explicit demo-only approval | The deployable model's features do not exist in IEEE-CIS | `ml/promote.py` |
 | Test-only OIDC provider instead of Keycloak locally | Keycloak's JVM did not fit the development machine's free memory | `src/devauth/oidc.py` |
 | Retention purges only archived rows; outcome events only after their attempt | A live attempt's projection is never rebuilt from partial history | `purge_expired` |

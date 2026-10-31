@@ -66,14 +66,12 @@ def forbidden(detail: str) -> ProblemError:
 
 
 class KeySource(Protocol):
-    remote: bool
+    def needs_io(self, kid: str) -> bool: ...
 
     def get(self, kid: str) -> jwt.PyJWK | None: ...
 
 
 class StaticKeys:
-    remote = False
-
     def __init__(self, jwks: Mapping[str, Any]) -> None:
         self._keys: dict[str, jwt.PyJWK] = {}
         for key in jwt.PyJWKSet.from_dict(dict(jwks)).keys:
@@ -89,6 +87,9 @@ class StaticKeys:
     def keys_by_id(self) -> dict[str, jwt.PyJWK]:
         return dict(self._keys)
 
+    def needs_io(self, kid: str) -> bool:
+        return False
+
     def get(self, kid: str) -> jwt.PyJWK | None:
         return self._keys.get(kid)
 
@@ -99,6 +100,10 @@ def _fetch_jwks(url: str, timeout_s: float) -> dict[str, Any]:
         return data
 
 
+def _in_background(fn: Callable[[], None]) -> None:
+    threading.Thread(target=fn, name="jwks-refresh", daemon=True).start()
+
+
 class RemoteKeys:
     """JWKS fetched from the issuer and cached in memory.
 
@@ -107,42 +112,67 @@ class RemoteKeys:
     `min_refresh_s` (attempts that fail count too); every other unknown kid in between is
     rejected without network I/O. A lock makes concurrent misses share one fetch. Rotation is
     still picked up within `min_refresh_s`.
-    """
 
-    remote = True
+    Revocation is handled by age: once the keys are older than `max_age_s`, the next lookup of a
+    known kid starts a refresh in the background and is answered from the cache, so no request
+    waits on the issuer. A revoked key therefore stops validating shortly after `max_age_s`. If
+    the issuer is unreachable the cached keys keep working (availability over revocation), and
+    attempts stay limited to one per `min_refresh_s`.
+    """
 
     def __init__(
         self,
         url: str,
         *,
         min_refresh_s: float = 60.0,
+        max_age_s: float = 300.0,
         timeout_s: float = 3.0,
         fetch: Callable[[str, float], Mapping[str, Any]] = _fetch_jwks,
         clock: Callable[[], float] = time.monotonic,
+        spawn: Callable[[Callable[[], None]], None] = _in_background,
     ) -> None:
         self._url = url
         self._min_refresh_s = min_refresh_s
+        self._max_age_s = max_age_s
         self._timeout_s = timeout_s
         self._fetch = fetch
         self._clock = clock
+        self._spawn = spawn
         self._keys: dict[str, jwt.PyJWK] = {}
+        self._loaded_at: float | None = None
         self._last_attempt: float | None = None
         self._lock = threading.Lock()
 
+    def needs_io(self, kid: str) -> bool:
+        """Whether get(kid) would block on a download. Stale known keys refresh in background."""
+        return kid not in self._keys and self._refresh_due()
+
     def get(self, kid: str) -> jwt.PyJWK | None:
         key = self._keys.get(kid)
-        if key is not None or not self._refresh_due():
+        if key is not None:
+            if self._stale() and self._refresh_due():
+                self._last_attempt = self._clock()
+                self._spawn(self._refresh)
             return key
+        if not self._refresh_due():
+            return None
         with self._lock:
             # Another thread may have refreshed while this one waited for the lock.
             if kid in self._keys or not self._refresh_due():
                 return self._keys.get(kid)
             self._last_attempt = self._clock()
-            try:
-                self._keys = StaticKeys(self._fetch(self._url, self._timeout_s)).keys_by_id
-            except Exception as exc:  # noqa: BLE001 - keep serving cached keys
-                logger.warning("JWKS refresh failed (%s)", type(exc).__name__)
+            self._refresh()
             return self._keys.get(kid)
+
+    def _refresh(self) -> None:
+        try:
+            self._keys = StaticKeys(self._fetch(self._url, self._timeout_s)).keys_by_id
+            self._loaded_at = self._clock()
+        except Exception as exc:  # noqa: BLE001 - keep serving cached keys
+            logger.warning("JWKS refresh failed (%s)", type(exc).__name__)
+
+    def _stale(self) -> bool:
+        return self._loaded_at is None or self._clock() - self._loaded_at >= self._max_age_s
 
     def _refresh_due(self) -> bool:
         return (
@@ -195,10 +225,20 @@ class TokenVerifier:
         return VerifiedToken(client_id=client_id, scopes=_scopes(claims), claims=claims)
 
     async def averify(self, token: str) -> VerifiedToken:
-        # Remote key sources may block on a JWKS fetch; keep that off the event loop.
-        if self.keys.remote:
+        # Only a JWKS download can block; keep that off the event loop. Cached keys verify
+        # inline, because a thread hop per request adds latency and queues behind slower work.
+        kid = _unverified_kid(token)
+        if kid is not None and self.keys.needs_io(kid):
             return await asyncio.to_thread(self.verify, token)
         return self.verify(token)
+
+
+def _unverified_kid(token: str) -> str | None:
+    try:
+        kid = jwt.get_unverified_header(token).get("kid")
+    except jwt.PyJWTError:
+        return None  # verify() rejects it without any key lookup
+    return kid if isinstance(kid, str) else None
 
 
 def _scopes(claims: Mapping[str, Any]) -> frozenset[str]:

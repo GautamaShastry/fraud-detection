@@ -1,5 +1,7 @@
-"""Review finding #1: unknown `kid`s must not let an unauthenticated caller force JWKS fetches."""
+"""Review findings #1 and #10: JWKS refresh is rate-limited, revocation is bounded by key age, and
+only a real download leaves the event loop."""
 
+import asyncio
 import secrets
 import threading
 import time
@@ -102,3 +104,106 @@ def test_keys_removed_by_the_issuer_stop_validating(jwks):
     clock.now += 61
     keys.get("unknown")  # triggers the refresh
     assert keys.get("ec-1") is None  # revoked key is no longer trusted
+
+
+def _spawned_keys(issuer: FakeIssuer, clock: Clock) -> tuple[RemoteKeys, list]:
+    pending: list = []
+    keys = RemoteKeys(
+        "https://issuer.test/jwks",
+        min_refresh_s=60,
+        max_age_s=300,
+        fetch=issuer,
+        clock=clock,
+        spawn=pending.append,
+    )
+    return keys, pending
+
+
+def test_revoked_key_stops_validating_after_max_age_without_any_unknown_kid(jwks):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys, pending = _spawned_keys(issuer, clock)
+    assert keys.get("ec-1") is not None
+
+    issuer.jwks = {"keys": [k for k in jwks["keys"] if k["kid"] == "rsa-1"]}  # ec-1 revoked
+    clock.now += 299
+    assert keys.get("ec-1") is not None and not pending  # still within max age
+
+    clock.now += 2
+    assert keys.get("ec-1") is not None  # answered from cache; the refresh is in the background
+    assert len(pending) == 1
+    pending.pop()()
+    assert keys.get("ec-1") is None
+
+
+def test_stale_lookups_never_wait_and_start_one_refresh(jwks):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys, pending = _spawned_keys(issuer, clock)
+    assert keys.get("ec-1") is not None
+    clock.now += 301
+    for _ in range(100):
+        assert not keys.needs_io("ec-1")
+        assert keys.get("ec-1") is not None
+    assert len(pending) == 1
+    assert issuer.calls == 1  # the refresh has not run, so nothing blocked on the issuer
+
+
+def test_failed_background_refresh_keeps_keys_and_stays_rate_limited(jwks):
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys, pending = _spawned_keys(issuer, clock)
+    assert keys.get("ec-1") is not None
+    issuer.fail = True
+    clock.now += 301
+    assert keys.get("ec-1") is not None
+    pending.pop()()
+    assert keys.get("ec-1") is not None  # the issuer being down does not reject live traffic
+    assert not pending  # inside min_refresh_s: no new attempt
+    clock.now += 61
+    assert keys.get("ec-1") is not None
+    assert len(pending) == 1  # still stale, so it tries again
+
+
+def _forbid_threads(monkeypatch) -> list:
+    hops: list = []
+
+    async def to_thread(fn, *args):
+        hops.append(fn)
+        return fn(*args)
+
+    monkeypatch.setattr(asyncio, "to_thread", to_thread)
+    return hops
+
+
+async def test_cached_keys_verify_without_a_thread_hop(jwks, make_token, monkeypatch):
+    hops = _forbid_threads(monkeypatch)
+    issuer, clock = FakeIssuer(jwks), Clock()
+    verifier = TokenVerifier(issuer=ISSUER, audience=AUDIENCE, keys=_keys(issuer, clock))
+
+    token = make_token()
+    assert (await verifier.averify(token)).client_id == "merchant-a"  # first use must download
+    assert len(hops) == 1
+    for _ in range(20):
+        assert (await verifier.averify(token)).client_id == "merchant-a"
+    assert len(hops) == 1
+
+
+async def test_unknown_kid_between_refreshes_is_rejected_without_a_thread_hop(
+    jwks, make_token, monkeypatch
+):
+    hops = _forbid_threads(monkeypatch)
+    issuer, clock = FakeIssuer(jwks), Clock()
+    keys = _keys(issuer, clock)
+    assert keys.get("rsa-1") is not None
+    verifier = TokenVerifier(issuer=ISSUER, audience=AUDIENCE, keys=keys)
+    with pytest.raises(ProblemError) as exc:
+        await verifier.averify(make_token(kid="forged"))
+    assert exc.value.status == 401
+    assert not hops
+
+
+async def test_malformed_token_is_rejected_without_a_download(jwks, monkeypatch):
+    hops = _forbid_threads(monkeypatch)
+    issuer, clock = FakeIssuer(jwks), Clock()
+    verifier = TokenVerifier(issuer=ISSUER, audience=AUDIENCE, keys=_keys(issuer, clock))
+    with pytest.raises(ProblemError):
+        await verifier.averify("not-a-token")
+    assert not hops and issuer.calls == 0

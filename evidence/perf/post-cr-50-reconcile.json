@@ -1,0 +1,25 @@
+{
+  "run_id": "post-cr-50",
+  "attempts_stored": 3000,
+  "stored_without_client_200": 0,
+  "k6_requests_sent": 3000,
+  "k6_outcomes": {
+    "ml": 3000,
+    "fallback": 0,
+    "unavailable": 0,
+    "other": 0,
+    "dropped_iterations": 0
+  },
+  "db_attempts_by_state": {
+    "COMPLETED:ML": 3000
+  },
+  "client_200s_checked": 3000,
+  "unmatched_200s": [],
+  "unmatched_200s_total": 0,
+  "checks": {
+    "every_200_recorded": true,
+    "attempt_log_complete": true,
+    "no_phantom_attempts": true
+  },
+  "ok": true
+}

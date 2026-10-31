@@ -120,9 +120,10 @@ results describe this machine and **not** the target hardware.
 | 50/s for 60 s | 62 / 135 ms | 6.1% | ✅ |
 | 100/s for 60 s | 204 ms / 1.12 s | 26% | ✅ |
 
-A single 50/s run after the review fixes gave 63 / 119 ms and 5.8%, reconciled
-(`evidence/perf/post-review-50-*.json`). It used 2 API processes rather than 4 and more free
-memory, so treat it as "no sign of a regression", not as a controlled comparison.
+A single 50/s run after the review fixes gave 21 / 51 ms and 0% (3,000 of 3,000 ML), with every
+200 matched to its stored assessment one by one (`evidence/perf/post-cr-50-*.json`). It used 2 API
+processes rather than 4, on a machine with more free memory, and variance here is large, so this
+is one good run and not a measured improvement. Earlier rows reconciled totals, which is weaker.
 
 `evidence/perf/final-r*.json`. "Reconciled" means:
 - every 200 the client saw was durably recorded with the same scoring mode;
@@ -157,10 +158,10 @@ framework, database driver, JWT, Redis and inference) plus sporadic fsync stalls
 
 | Scenario | Expected | Result |
 | --- | --- | --- |
-| Redis stopped | FALLBACK assessments, never decline | Warm API: 60 of 60 FALLBACK. Freshly started API: 18–20 of 20, because the first request on a new process can miss the deadline (504). Readiness stays 200 `degraded`. The first 5 requests per process take about 100 ms before the circuit breaker opens; the rest fail fast |
-| Postgres paused | Explicit 503/504, no score | Pass |
+| Redis stopped | FALLBACK assessments, never decline | Pass: 20 of 20, also on a freshly started API (warm-up at startup). Readiness stays 200 `degraded`. The first 5 requests per process take about 100 ms before the circuit breaker opens; the rest fail fast |
+| Postgres paused | Explicit 503/504, no score, on time | Pass: 20 of 20 got a 504 in under 500 ms. Before the fix, the first requests hung past 2 s |
 | Worker killed | Scoring unaffected; events resume | Pass |
-| API stopped (merchant view) | Checkout continues to ordinary authorization | Pass functionally. 0.2 s once warm (measured directly); the first call after the outage took 0.5–1.5 s against the 200 ms budget |
+| API stopped (merchant view) | Checkout continues to ordinary authorization | Pass: about 0.2 s in the last two runs |
 
 ## 6. Limitations and open items
 

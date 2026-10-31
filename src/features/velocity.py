@@ -14,6 +14,7 @@ I-11 is open: capacity and Lua cost still need benchmarking.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -85,13 +86,29 @@ class VelocityUnavailableError(Exception):
 
 
 class CircuitBreaker:
-    """Fast-fails calls for `open_s` after a failure, so a dead Redis costs one timeout, not
-    one timeout per request. Callers then degrade to the fallback scorer immediately."""
+    """Fast-fails calls for `open_s` after `failure_threshold` consecutive failures, so a dead
+    Redis costs a few timeouts, not one per request. Callers then degrade to the fallback scorer
+    immediately. Any success resets the count, so isolated slow calls never move all traffic to
+    the fallback. After `open_s` calls are let through again; one more failure reopens it.
 
-    def __init__(self, open_s: float = 2.0, clock: Callable[[], float] = time.monotonic) -> None:
+    Being cancelled by the request's deadline is not a Redis failure: the request may have spent
+    its time elsewhere. A hung Redis is still detected, because `call_timeout_s` is shorter than
+    the primary budget and counts as a failure.
+    """
+
+    def __init__(
+        self,
+        open_s: float = 2.0,
+        failure_threshold: int = 5,
+        call_timeout_s: float = 0.08,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._open_s = open_s
+        self._failure_threshold = failure_threshold
+        self._call_timeout_s = call_timeout_s
         self._clock = clock
         self._open_until = 0.0
+        self._failures = 0
 
     @property
     def is_open(self) -> bool:
@@ -101,8 +118,12 @@ class CircuitBreaker:
         if self.is_open:
             raise VelocityUnavailableError("velocity circuit open")
         try:
-            return await fn()
-        except BaseException:
-            # Includes cancellation by the primary deadline: a hung Redis also opens it.
-            self._open_until = self._clock() + self._open_s
+            async with asyncio.timeout(self._call_timeout_s):
+                result = await fn()
+        except Exception:  # Cancellation is a BaseException, so it does not count.
+            self._failures += 1
+            if self._failures >= self._failure_threshold:
+                self._open_until = self._clock() + self._open_s
             raise
+        self._failures = 0
+        return result

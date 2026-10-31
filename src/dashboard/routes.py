@@ -117,7 +117,11 @@ def _row(r: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("/me")
-async def me(user: Annotated[User, Depends(require_role("viewer"))]) -> dict[str, str]:
+async def me(
+    request: Request, user: Annotated[User, Depends(require_role("viewer"))]
+) -> dict[str, str]:
+    async with tenant_tx(_pool(request), user.tenant_id) as conn:
+        await _audit(conn, user, "view_me", None, request.app.state.clock())
     return {
         "subject": user.subject,
         "name": user.name,
@@ -344,6 +348,8 @@ async def dashboard_metrics(
 async def admin_config(
     request: Request, user: Annotated[User, Depends(require_role("admin"))]
 ) -> dict[str, Any]:
+    async with tenant_tx(_pool(request), user.tenant_id) as conn:
+        await _audit(conn, user, "view_config", None, request.app.state.clock())
     settings: Settings = request.app.state.settings
     engine = request.app.state.engine
     bundle = engine.bundle if engine else None
@@ -381,6 +387,8 @@ async def admin_audit(
                 (limit,),
             )
         ).fetchall()
+        # After the read, so an admin's own view shows up in the next one.
+        await _audit(conn, user, "view_audit", None, request.app.state.clock())
     return {"items": [{**r, "at": format_utc(r["at"])} for r in rows]}
 
 

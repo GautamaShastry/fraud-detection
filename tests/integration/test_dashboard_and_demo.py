@@ -238,6 +238,43 @@ def test_pagination_and_audit(dashboard, user_token, make_token):
     assert {"list_attempts"} <= {a["action"] for a in audit}
 
 
+def test_every_view_is_audited_including_the_audit_trail(dashboard, user_token, owner_conn):
+    """Review finding #9: reading the audit trail must itself leave a record."""
+    admin = user_token("admin")
+
+    def count(action: str) -> int:
+        row = owner_conn.execute(
+            "SELECT count(*) FROM dashboard_audit WHERE action = %s", (action,)
+        ).fetchone()
+        return row[0]
+
+    for path, action in (
+        ("/api/v1/dashboard/me", "view_me"),
+        ("/api/v1/dashboard/admin/config", "view_config"),
+        ("/api/v1/dashboard/admin/audit", "view_audit"),
+    ):
+        before = count(action)
+        assert dashboard.get(path, headers=admin).status_code == 200
+        assert count(action) == before + 1, action
+
+    trail = dashboard.get("/api/v1/dashboard/admin/audit", headers=admin).json()["items"]
+    assert "view_audit" in {a["action"] for a in trail}  # the earlier read is on the record
+
+
+def test_denied_views_are_not_recorded_as_access(dashboard, user_token, owner_conn):
+    analyst = user_token("analyst")
+    before = owner_conn.execute(
+        "SELECT count(*) FROM dashboard_audit WHERE action = 'view_audit'"
+    ).fetchone()
+    assert dashboard.get("/api/v1/dashboard/admin/audit", headers=analyst).status_code == 403
+    assert (
+        owner_conn.execute(
+            "SELECT count(*) FROM dashboard_audit WHERE action = 'view_audit'"
+        ).fetchone()
+        == before
+    )
+
+
 def test_dashboard_ui_is_served(dashboard):
     assert "Fraud Monitoring" in dashboard.get("/dashboard/").text
     assert dashboard.get("/dashboard/config.json").json()["issuer"] == OIDC_ISSUER

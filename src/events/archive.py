@@ -304,7 +304,13 @@ def verify_object(store: ArchiveStore, manifest_key: str) -> dict[str, Any]:
 
 
 async def purge_expired(pool: Pool, now: datetime, retention: timedelta) -> dict[str, int]:
-    """Delete operational rows past retention, but only rows already in durable history."""
+    """Delete operational rows past retention.
+
+    Scored attempts go only once they are in durable history. Attempts that never got an
+    assessment (UNAVAILABLE, or IN_PROGRESS and abandoned) have nothing to archive and are never
+    exported, so they are deleted at retention directly. Their outcome events are archived
+    separately, so the label history is kept.
+    """
     cutoff = now - retention
     async with pool.connection() as conn, conn.transaction():
         cur = await conn.execute(
@@ -323,6 +329,13 @@ async def purge_expired(pool: Pool, now: datetime, retention: timedelta) -> dict
             (cutoff,),
         )
         attempts = cur.rowcount
+        cur = await conn.execute(
+            "DELETE FROM attempts a WHERE a.status <> 'COMPLETED' AND a.received_at < %s "
+            "AND NOT EXISTS (SELECT 1 FROM assessments s WHERE s.tenant_id = a.tenant_id "
+            "AND s.payment_attempt_id = a.payment_attempt_id)",
+            (cutoff,),
+        )
+        unscored = cur.rowcount
         # Outcome events go only once their attempt has left operational storage, so the
         # projection of a live attempt is never rebuilt from a partial event set. The archive
         # remains the authoritative label history for training.
@@ -347,6 +360,7 @@ async def purge_expired(pool: Pool, now: datetime, retention: timedelta) -> dict
         return {
             "assessments": assessments,
             "attempts": attempts,
+            "unscored_attempts": unscored,
             "outcome_events": events,
             "outbox": cur.rowcount,
         }

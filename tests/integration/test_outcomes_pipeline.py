@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from src.api.app import create_app
 from src.events import worker
 from src.events.archive import FileArchiveStore, export_batch, purge_expired, verify_object
 from src.events.reconcile import reconcile
+from src.scoring.stub import stub_bundle
 from src.storage.db import create_pool
 from tests.integration.conftest import now_request
 from tests.support.contract import assert_response_matches
@@ -337,3 +339,91 @@ async def test_retention_purges_only_archived_rows(
         )
     }
     assert remaining == {pending["payment_attempt_id"]}  # never archived => never purged
+
+
+@dataclass
+class _BrokenScorer:
+    model_version: str = "broken-0"
+    feature_names: tuple[str, ...] = ()
+
+    def predict(self, features: dict[str, float | None]) -> float:
+        raise RuntimeError("model crashed")
+
+
+def _unscored_attempt(settings: Any, headers: dict[str, str]) -> str:
+    bundle = replace(stub_bundle(), primary=_BrokenScorer(), fallback=_BrokenScorer())
+    body = now_request()
+    with TestClient(create_app(settings, bundle=bundle), raise_server_exceptions=False) as client:
+        assert client.post("/api/v1/fraud/score", json=body, headers=headers).status_code == 503
+    return body["payment_attempt_id"]
+
+
+def _age(conn: Any, attempt: str, days: int = 31) -> None:
+    conn.execute(
+        "UPDATE attempts SET received_at = received_at - make_interval(days => %s) "
+        "WHERE payment_attempt_id = %s",
+        (days, attempt),
+    )
+
+
+def _attempt_exists(conn: Any, attempt: str) -> bool:
+    return (
+        conn.execute("SELECT 1 FROM attempts WHERE payment_attempt_id = %s", (attempt,)).fetchone()
+        is not None
+    )
+
+
+async def test_retention_removes_unscored_attempts_and_their_events(
+    integration_settings,
+    auth_header,
+    outcome_headers,
+    live_client,
+    worker_pool,
+    owner_conn,
+    tmp_path,
+):
+    """Review finding #4: attempts without an assessment were never archived, so never purged."""
+    unavailable = _unscored_attempt(integration_settings, auth_header)
+    abandoned = _unscored_attempt(integration_settings, auth_header)
+    owner_conn.execute(
+        "UPDATE attempts SET status = 'IN_PROGRESS' WHERE payment_attempt_id = %s", (abandoned,)
+    )
+    recent = _unscored_attempt(integration_settings, auth_header)
+    for attempt in (unavailable, abandoned):
+        _age(owner_conn, attempt)
+
+    # An outcome reported for the failed attempt: archived, then expired.
+    event = _event(unavailable)
+    assert live_client.post(OUTCOMES, json=event, headers=outcome_headers).status_code == 202
+    await worker.process_inbox_once(worker_pool, worker.WorkerConfig())
+    store = FileArchiveStore(tmp_path)
+    assert (await export_batch(worker_pool, store, datetime.now(UTC))).rows == 1
+    owner_conn.execute(
+        "UPDATE outcome_events SET received_at = received_at - interval '31 days' "
+        "WHERE event_id = %s",
+        (event["event_id"],),
+    )
+
+    purged = await purge_expired(worker_pool, datetime.now(UTC), timedelta(days=30))
+
+    assert purged["unscored_attempts"] == 2 and purged["outcome_events"] == 1
+    assert not _attempt_exists(owner_conn, unavailable)
+    assert not _attempt_exists(owner_conn, abandoned)
+    assert _attempt_exists(owner_conn, recent)  # inside retention
+    assert owner_conn.execute(
+        "SELECT count(*) FROM outcome_events WHERE event_id = %s", (event["event_id"],)
+    ).fetchone() == (0,)
+    assert [k for k in store.list() if k.endswith(".parquet")]  # the label history remains
+
+
+async def test_retention_keeps_scored_attempts_that_are_not_archived_yet(
+    live_client, auth_header, worker_pool, owner_conn
+):
+    body = now_request()
+    assert (
+        live_client.post("/api/v1/fraud/score", json=body, headers=auth_header).status_code == 200
+    )
+    _age(owner_conn, body["payment_attempt_id"])
+    purged = await purge_expired(worker_pool, datetime.now(UTC), timedelta(days=30))
+    assert purged["unscored_attempts"] == 0 and purged["attempts"] == 0
+    assert _attempt_exists(owner_conn, body["payment_attempt_id"])

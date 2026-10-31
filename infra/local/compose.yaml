@@ -119,6 +119,11 @@ services:
       DEV_OIDC_USERS: /config/dev-users.json
     volumes: ["./secrets/dev-users.json:/config/dev-users.json:ro"]
     ports: ["127.0.0.1:8081:8081"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/.well-known/openid-configuration', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   checkout-demo:
     <<: *image
@@ -133,6 +138,11 @@ services:
       DEMO_TIMEOUT_S: "0.2"
     volumes: ["./secrets:/secrets:ro"]
     ports: ["127.0.0.1:8090:8090"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   prometheus:
     image: prom/prometheus:v3.0.1

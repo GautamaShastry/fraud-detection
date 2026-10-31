@@ -1,7 +1,8 @@
 // Constant-arrival-rate load test for POST /api/v1/fraud/score (T-503).
 //
 //   k6 run -e BASE_URL=http://api:8000 -e TOKEN=... -e RATE=100 -e DURATION=60s \
-//          -e RUN_ID=run1 --summary-export=/evidence/summary.json perf/k6/score.js
+//          -e RUN_ID=run1 --summary-export=/evidence/summary.json \
+//          --console-output=/evidence/attempts.log perf/k6/score.js
 //
 // Every iteration is a unique attempt (RUN_ID + VU + iteration), so results can be reconciled
 // against PostgreSQL with perf/reconcile_run.py. Offered vs achieved rate is reported through
@@ -65,6 +66,7 @@ export default function () {
   if (res.status === 200) {
     const mode = res.json("scoring_mode");
     outcome = mode === "ML" ? "ml" : "fallback";
+    console.log(`ASSESSED ${mode} pa-${id}`); // Read by perf/reconcile_run.py
   } else if (res.status === 503 || res.status === 504) {
     outcome = "unavailable";
   }

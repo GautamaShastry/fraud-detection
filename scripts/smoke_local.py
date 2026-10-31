@@ -9,6 +9,7 @@ import argparse
 import json
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
@@ -32,7 +33,20 @@ def call(
             raw = resp.read()
             return resp.status, json.loads(raw) if raw[:1] in (b"{", b"[") else raw.decode()
     except urllib.error.HTTPError as err:
-        return err.code, json.loads(err.read())
+        raw = err.read()
+        try:
+            return err.code, json.loads(raw)
+        except ValueError:  # A proxy or framework error page
+            return err.code, {"error": raw[:200].decode(errors="replace")}
+    except (OSError, ValueError) as exc:  # Refused, reset, timed out, or an unreadable body
+        return 0, {"error": type(exc).__name__}
+
+
+def wait_for_stack(base_url: str, wait_s: float) -> None:
+    """`compose up --wait` can return just before a server accepts connections."""
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline and call(f"{base_url}/health/live")[0] != 200:
+        time.sleep(1)
 
 
 def main() -> None:
@@ -42,7 +56,9 @@ def main() -> None:
     parser.add_argument("--oidc-url", default="http://127.0.0.1:8081")
     parser.add_argument("--keys", type=Path, required=True)
     parser.add_argument("--expect-mode", default=None, help="ML; omit to accept ML or FALLBACK")
+    parser.add_argument("--wait-s", type=float, default=30.0, help="Time allowed for startup")
     args = parser.parse_args()
+    wait_for_stack(args.base_url, args.wait_s)
 
     run = secrets.token_hex(4)
     body = {

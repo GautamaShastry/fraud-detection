@@ -127,7 +127,7 @@ def test_api_refuses_to_start_with_unverified_model(integration_settings, promot
     model_dir, digest = promoted_model
     tampered = tmp_path / "tampered"
     shutil.copytree(model_dir, tampered)
-    with (tampered / "fallback.joblib").open("ab") as fh:
+    with (tampered / "primary.joblib").open("ab") as fh:  # Always shipped, unlike the fallback
         fh.write(b"x")
     settings = integration_settings.model_copy(
         update={"scorer_mode": "model", "model_dir": tampered, "model_manifest_sha256": digest}

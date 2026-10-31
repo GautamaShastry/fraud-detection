@@ -59,7 +59,7 @@ def burst(client: httpx.Client, token: str, run: str, n: int = 20) -> Counter[st
             )
             key = r.json().get("scoring_mode") if r.status_code == 200 else r.json().get("code")
             seen[f"{r.status_code}:{key}"] += 1
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             seen[f"error:{type(exc).__name__}"] += 1
         seen["slow>500ms"] += int(time.perf_counter() - started > 0.5)
     return seen
@@ -105,11 +105,13 @@ def main() -> None:
         settle_s: float = 2.0,
     ) -> None:
         run = secrets.token_hex(3)
-        compose(*inject)
-        time.sleep(settle_s)
-        during = burst(client, token, run)
-        health = ready(client)
-        compose(*restore)
+        try:
+            compose(*inject)
+            time.sleep(settle_s)
+            during = burst(client, token, run)
+            health = ready(client)
+        finally:
+            compose(*restore)  # Never leave the stack broken, whatever happened above
         recovered = wait_ready(client)
         after = burst(client, token, run + "r", 5)
         ok = bool(check(during)) and recovered and after.get("200:ML", 0) == 5
@@ -139,7 +141,9 @@ def main() -> None:
         "explicit 503/504, no fabricated score, fast failure",
         ["pause", "postgres"],
         ["unpause", "postgres"],
-        lambda d: not any(k.startswith("200") for k in d) and d.get("slow>500ms", 0) < 20,
+        # Every response is the documented 503/504: a client timeout is not a pass.
+        lambda d: all(k.startswith(("503:", "504:")) or k == "slow>500ms" for k in d)
+        and d.get("slow>500ms", 0) == 0,
     )
     scenario(
         "worker killed",
@@ -151,19 +155,21 @@ def main() -> None:
     )
 
     # API down: the checkout demo must fail open within its 200 ms client timeout.
-    compose("stop", "api")
-    time.sleep(1)
-    started = time.perf_counter()
     try:
-        demo = client.post(
-            f"{DEMO}/checkout",
-            json={"amount_minor": 999, "device_id": "chaos", "payment_method_token": "chaos"},
-            timeout=5,
-        ).json()
-    except httpx.HTTPError as exc:
-        demo = {"payment_decision": f"demo unreachable ({type(exc).__name__})"}
-    elapsed = time.perf_counter() - started
-    compose("start", "api")
+        compose("stop", "api")
+        time.sleep(1)
+        started = time.perf_counter()
+        try:
+            demo = client.post(
+                f"{DEMO}/checkout",
+                json={"amount_minor": 999, "device_id": "chaos", "payment_method_token": "chaos"},
+                timeout=5,
+            ).json()
+        except httpx.HTTPError as exc:
+            demo = {"payment_decision": f"demo unreachable ({type(exc).__name__})"}
+        elapsed = time.perf_counter() - started
+    finally:
+        compose("start", "api")
     recovered = wait_ready(client, 90)
     ok = "fail-open" in demo.get("payment_decision", "") and elapsed < 1.5 and recovered
     results.append(

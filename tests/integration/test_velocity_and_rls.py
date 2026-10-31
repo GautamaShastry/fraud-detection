@@ -73,8 +73,11 @@ async def test_tenants_and_devices_are_isolated(store):
 
 @pytest.fixture
 def seeded(owner_conn):
-    owner_conn.execute("DELETE FROM assessments WHERE payment_attempt_id LIKE 'rls-%'")
-    owner_conn.execute("DELETE FROM attempts WHERE payment_attempt_id LIKE 'rls-%'")
+    def clean() -> None:
+        owner_conn.execute("DELETE FROM assessments WHERE payment_attempt_id LIKE 'rls-%'")
+        owner_conn.execute("DELETE FROM attempts WHERE payment_attempt_id LIKE 'rls-%'")
+
+    clean()
     for tenant in ("tenant-a", "tenant-b"):
         owner_conn.execute(
             "INSERT INTO attempts (tenant_id, payment_attempt_id, idempotency_key, transaction_id,"
@@ -83,6 +86,8 @@ def seeded(owner_conn):
             " 'COMPLETED', gen_random_uuid(), now(), 1, 'USD', now(), now(), now())",
             (tenant, f"rls-{tenant}", f"rls-key-{tenant}"),
         )
+    yield
+    clean()
 
 
 def _app_conn(database):

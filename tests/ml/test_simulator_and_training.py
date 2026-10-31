@@ -189,6 +189,62 @@ def test_approved_artifact_loads_and_scores(workspace, tmp_path):
     assert json.loads(log[-1])["decision"] == "APPROVED"
 
 
+def _failed_promotion(workspace, tmp_path):
+    env = tmp_path / "model.env"
+    with pytest.raises(ArtifactError):
+        approve(
+            workspace,
+            "tester",
+            synthetic_demo_only=True,
+            models_root=workspace.parent,
+            env_file=env,
+        )
+    return env
+
+
+def test_failed_validation_leaves_no_approval_behind(workspace, tmp_path):
+    """Review finding #8: the approval must not exist unless every check passed."""
+    manifest_path = workspace / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["library_versions"]["scikit-learn"] = "0.0.0"  # fails load_artifact, not the digests
+    manifest_path.write_text(json.dumps(manifest))
+    before = manifest_path.read_bytes()
+
+    env = _failed_promotion(workspace, tmp_path)
+
+    assert manifest_path.read_bytes() == before  # still unapproved
+    assert json.loads(before).get("approval", {}).get("status") != "APPROVED"
+    root = workspace.parent
+    assert not (root / "current").exists()
+    assert not (root / "promotion_log.jsonl").exists()
+    assert not env.exists()
+    assert not list(root.glob(".promote-*"))
+
+
+def test_failed_promotion_keeps_the_current_model(workspace, tmp_path):
+    root = workspace.parent
+    good = approve(workspace, "tester", synthetic_demo_only=True, models_root=root, env_file=None)
+    log_before = (root / "promotion_log.jsonl").read_text()
+
+    second = root / "second"
+    shutil.copytree(workspace, second)
+    manifest = json.loads((second / "manifest.json").read_text())
+    manifest["library_versions"]["scikit-learn"] = "0.0.0"
+    (second / "manifest.json").write_text(json.dumps(manifest))
+    _failed_promotion(second, tmp_path)
+
+    assert load_artifact(root / "current", good).manifest["approval"]["approver"] == "tester"
+    assert (root / "promotion_log.jsonl").read_text() == log_before
+
+
+def test_approved_manifest_matches_the_pinned_digest(workspace):
+    root = workspace.parent
+    digest = approve(workspace, "tester", synthetic_demo_only=True, models_root=root, env_file=None)
+    assert sha256_file(workspace / "manifest.json") == digest
+    assert sha256_file(root / "current" / "manifest.json") == digest
+    assert not list(root.glob(".promote-*"))
+
+
 def test_tampered_model_file_is_refused(workspace):
     digest = approve(
         workspace, "tester", synthetic_demo_only=True, models_root=workspace.parent, env_file=None

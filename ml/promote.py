@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import hashlib
 import json
+import os
 import shutil
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -92,27 +95,40 @@ def approve(
         "approved_at": now,
         "synthetic_demo_only": synthetic_demo_only,
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    digest = sha256_file(manifest_path)
-    load_artifact(directory, digest)  # the exact checks the API performs at startup
+    approved = json.dumps(manifest, indent=2).encode("utf-8")
+    digest = hashlib.sha256(approved).hexdigest()
 
-    current = models_root / "current"
-    if current.exists():
-        shutil.rmtree(current)
-    shutil.copytree(directory, current)
+    # Validate a private copy: the artifact says APPROVED only after every check has passed.
+    staging = Path(tempfile.mkdtemp(prefix=".promote-", dir=models_root))
+    try:
+        candidate = staging / "artifact"
+        shutil.copytree(directory, candidate)
+        (candidate / "manifest.json").write_bytes(approved)
+        load_artifact(candidate, digest)  # the exact checks the API performs at startup
+
+        # The log goes first: if it can't be written, nothing has been approved.
+        _log(
+            models_root,
+            {
+                "decision": "APPROVED",
+                "model_version": manifest["model_version"],
+                "approver": approver,
+                "at": now,
+                "manifest_sha256": digest,
+                "synthetic_demo_only": synthetic_demo_only,
+            },
+        )
+        temp_manifest = staging / "manifest.json"
+        temp_manifest.write_bytes(approved)
+        os.replace(temp_manifest, manifest_path)
+        current = models_root / "current"
+        if current.exists():
+            current.rename(staging / "previous")
+        candidate.rename(current)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
     if env_file is not None:
         _update_env(env_file, {"FRAUD_SCORER_MODE": "model", "FRAUD_MODEL_MANIFEST_SHA256": digest})
-    _log(
-        models_root,
-        {
-            "decision": "APPROVED",
-            "model_version": manifest["model_version"],
-            "approver": approver,
-            "at": now,
-            "manifest_sha256": digest,
-            "synthetic_demo_only": synthetic_demo_only,
-        },
-    )
     return digest
 
 

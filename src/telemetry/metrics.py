@@ -40,6 +40,9 @@ OUTCOME_EVENTS = Counter(
 WORKER_EVENTS = Counter(
     "fraud_worker_events_total", "Inbox events handled by the worker", ["result"]
 )
+WORKER_STEP_FAILURES = Counter(
+    "fraud_worker_step_failures_total", "Failed worker loop steps by step", ["step"]
+)
 INBOX_BACKLOG = Gauge(
     "fraud_inbox_backlog", "Pending inbox events at last poll", multiprocess_mode="max"
 )

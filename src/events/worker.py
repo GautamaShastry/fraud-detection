@@ -23,7 +23,7 @@ import logging
 import os
 import signal
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -143,22 +143,32 @@ async def update_backlog(pool: Pool) -> None:
         metrics.OUTBOX_BACKLOG.set(row["outbox"])
 
 
+async def _guarded[T](step: str, job: Awaitable[T]) -> T | None:
+    """Run one job of the loop; its failure is reported and never blocks the others."""
+    try:
+        return await job
+    except Exception as exc:  # noqa: BLE001 - keep the loop alive through outages
+        metrics.WORKER_STEP_FAILURES.labels(step=step).inc()
+        logger.error("Worker step %s failed (%s)", step, type(exc).__name__, exc_info=True)
+        return None
+
+
 async def run(pool: Pool, store: ArchiveStore, cfg: WorkerConfig, stop: asyncio.Event) -> None:
+    # Independent steps: an archive outage must not freeze the backlog metrics that alert on
+    # it, stop label processing, or stop retention (which only ever deletes archived rows).
     last_purge = datetime.min.replace(tzinfo=UTC)
     while not stop.is_set():
-        busy = False
-        try:
-            busy |= await process_inbox_once(pool, cfg) > 0
-            exported = await export_batch(pool, store, cfg.clock(), cfg.archive_batch)
-            busy |= exported.rows > 0
-            if cfg.clock() - last_purge >= cfg.purge_every:
-                purged = await purge_expired(pool, cfg.clock(), cfg.retention)
+        processed = await _guarded("inbox", process_inbox_once(pool, cfg))
+        exported = await _guarded(
+            "export", export_batch(pool, store, cfg.clock(), cfg.archive_batch)
+        )
+        busy = bool(processed) or (exported is not None and exported.rows > 0)
+        if cfg.clock() - last_purge >= cfg.purge_every:
+            purged = await _guarded("purge", purge_expired(pool, cfg.clock(), cfg.retention))
+            if purged is not None:
                 logger.info("Retention purge %s", json.dumps(purged))
                 last_purge = cfg.clock()
-            await update_backlog(pool)
-        except Exception as exc:  # noqa: BLE001 - keep the loop alive through outages
-            logger.error("Worker iteration failed (%s)", type(exc).__name__, exc_info=True)
-            busy = False
+        await _guarded("backlog", update_backlog(pool))
         if not busy:
             try:
                 await asyncio.wait_for(stop.wait(), cfg.idle_sleep_s)

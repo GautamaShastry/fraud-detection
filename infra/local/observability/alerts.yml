@@ -21,6 +21,13 @@ groups:
         annotations:
           summary: "More than 1% of assessments are degraded (fallback)"
           runbook: docs/runbooks/redis-outage.md
+      - alert: WorkerStepFailing
+        expr: sum by (step) (rate(fraud_worker_step_failures_total[5m])) > 0
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: "A worker step (inbox, export, purge or backlog) keeps failing"
+          runbook: docs/runbooks/worker-backlog.md
       - alert: ScoringLatencyP99High
         expr: |
           histogram_quantile(0.99, sum by (le) (rate(fraud_score_latency_seconds_bucket{outcome=~"ml|fallback"}[5m]))) > 0.2

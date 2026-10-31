@@ -4,7 +4,8 @@
 
 Expected behavior: the primary path needs F01 from Redis, so every request degrades to the
 validated FALLBACK scorer (no velocity features, never recommends decline). Assessments are
-still recorded; responses say `"scoring_mode": "FALLBACK"`.
+still recorded; responses say `"scoring_mode": "FALLBACK"`. `GET /health/ready` returns 200 with
+`"status": "degraded"`, so instances stay in service.
 
 1. `docker compose -f infra/local/compose.yaml ps redis` / restart it.
 2. No data repair is needed: F01 windows are 5 minutes and rebuild on their own. Attempts scored

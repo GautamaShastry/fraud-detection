@@ -78,7 +78,8 @@ async def _ok() -> None:
 def client(app_settings: Settings) -> TestClient:
     app = create_app(
         app_settings,
-        readiness_checks={"postgres": _ok, "redis": _ok},
+        readiness_checks={"postgres": _ok},
+        advisory_checks={"redis": _ok},
         clock=lambda: FIXED_NOW,
         connect=False,
     )

@@ -129,6 +129,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     readiness_checks: Mapping[str, HealthCheck] | None = None,
+    advisory_checks: Mapping[str, HealthCheck] | None = None,
     clock: Callable[[], datetime] | None = None,
     connect: bool = True,
     bundle: ScoringBundle | None = None,
@@ -167,10 +168,7 @@ def create_app(
         )
         app.state.pool = pool
         if readiness_checks is None:
-            app.state.readiness_checks = {
-                "postgres": pool_check(pool),
-                "redis": redis_check(settings.redis_url),
-            }
+            app.state.readiness_checks = {"postgres": pool_check(pool)}
         if settings.tenant_source == "postgres":
             app.state.tenants = PostgresTenantResolver(pool)
         store = VelocityStore(redis)
@@ -229,11 +227,13 @@ def create_app(
     app.state.readiness_checks = (
         readiness_checks
         if readiness_checks is not None
-        else {
-            "postgres": postgres_check(settings.postgres_dsn),
-            "redis": redis_check(settings.redis_url),
-        }
+        else {"postgres": postgres_check(settings.postgres_dsn)}
     )
+    if advisory_checks is None:
+        advisory_checks = (
+            {} if readiness_checks is not None else {"redis": redis_check(settings.redis_url)}
+        )
+    app.state.advisory_checks = advisory_checks
 
     install_problem_handlers(app)
     app.include_router(health.router)

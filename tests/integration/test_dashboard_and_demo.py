@@ -300,10 +300,10 @@ def test_demo_uses_real_api_and_shows_recommendation(live_client, make_token):
 
 
 def test_demo_fails_open_on_outage(live_client, make_token):
-    started = time.perf_counter()
     with TestClient(
         create_demo("http://api", _Tokens(make_token("merchant-a")), None, 0.2)
     ) as demo:
+        started = time.perf_counter()  # the checkout only: app startup is not in the budget
         r = demo.post(
             "/checkout",
             json={
@@ -313,9 +313,10 @@ def test_demo_fails_open_on_outage(live_client, make_token):
                 "simulate_outage": True,
             },
         ).json()
+        elapsed = time.perf_counter() - started
     assert r["status"] is None and r["error"]
     assert r["payment_decision"] == FAIL_OPEN
-    assert time.perf_counter() - started < 1.5  # bounded by the 200 ms client timeout
+    assert elapsed < 1.5  # bounded by the 200 ms client timeout
 
 
 def test_demo_fails_open_when_scoring_unavailable(integration_settings, make_token, redis_client):

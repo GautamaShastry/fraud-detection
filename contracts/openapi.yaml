@@ -130,11 +130,11 @@ paths:
     get:
       tags: [health]
       operationId: readiness
-      summary: Dependencies reachable; instance may receive traffic
+      summary: Instance may receive traffic (200 ok or degraded; 503 if PostgreSQL is unreachable)
       security: []
       responses:
         '200':
-          description: Ready.
+          description: Ready. `degraded` means Redis is unreachable and scoring uses the fallback.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Health' }
@@ -360,7 +360,7 @@ components:
       additionalProperties: false
       required: [status]
       properties:
-        status: { type: string, enum: [ok, unavailable] }
+        status: { type: string, enum: [ok, degraded, unavailable] }
         checks:
           type: object
           additionalProperties: { type: string, enum: [ok, unavailable] }

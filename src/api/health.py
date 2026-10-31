@@ -1,4 +1,10 @@
-"""Liveness and readiness. Readiness checks every dependency the service needs."""
+"""Liveness and readiness.
+
+Readiness answers "should this instance receive traffic?", so it fails only on dependencies
+without which no assessment can be returned (PostgreSQL). Advisory dependencies (Redis) have a
+degraded path: scoring continues on the fallback, so losing one reports "degraded" with a 200.
+Failing readiness on Redis would take every instance out of service at once.
+"""
 
 from __future__ import annotations
 
@@ -77,11 +83,13 @@ async def live() -> dict[str, str]:
 
 @router.get("/health/ready")
 async def ready(request: Request) -> JSONResponse:
-    checks: Mapping[str, HealthCheck] = request.app.state.readiness_checks
+    required: Mapping[str, HealthCheck] = request.app.state.readiness_checks
+    advisory: Mapping[str, HealthCheck] = request.app.state.advisory_checks
     timeout_s: float = request.app.state.settings.readiness_timeout_s
-    results = dict(await asyncio.gather(*(_run(n, c, timeout_s) for n, c in checks.items())))
-    healthy = bool(results) and all(v == "ok" for v in results.values())
-    return JSONResponse(
-        {"status": "ok" if healthy else "unavailable", "checks": results},
-        status_code=200 if healthy else 503,
+    results = dict(
+        await asyncio.gather(*(_run(n, c, timeout_s) for n, c in {**required, **advisory}.items()))
     )
+    if not required or any(results[name] != "ok" for name in required):
+        return JSONResponse({"status": "unavailable", "checks": results}, status_code=503)
+    healthy = all(v == "ok" for v in results.values())
+    return JSONResponse({"status": "ok" if healthy else "degraded", "checks": results})

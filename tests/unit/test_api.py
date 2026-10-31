@@ -23,20 +23,73 @@ def test_ready_when_dependencies_up(client):
     assert_response_matches("GET", "/health/ready", response)
 
 
-def test_not_ready_when_a_dependency_fails(app_settings):
-    async def ok():
-        return None
+async def _ok():
+    return None
 
-    async def down():
-        raise ConnectionError("redis down")
 
-    app = create_app(app_settings, readiness_checks={"postgres": ok, "redis": down}, connect=False)
+async def _down():
+    raise ConnectionError("dependency down")
+
+
+def test_not_ready_when_postgres_fails(app_settings):
+    app = create_app(
+        app_settings,
+        readiness_checks={"postgres": _down},
+        advisory_checks={"redis": _ok},
+        connect=False,
+    )
     with TestClient(app) as c:
         live, ready = c.get("/health/live"), c.get("/health/ready")
     assert live.status_code == 200  # liveness does not depend on dependencies
     assert ready.status_code == 503
-    assert ready.json()["checks"] == {"postgres": "ok", "redis": "unavailable"}
+    assert ready.json() == {
+        "status": "unavailable",
+        "checks": {"postgres": "unavailable", "redis": "ok"},
+    }
     assert_response_matches("GET", "/health/ready", ready)
+
+
+def test_redis_outage_degrades_but_keeps_the_instance_in_service(app_settings):
+    """Review finding #2: scoring continues on the fallback, so Redis must not fail readiness."""
+    app = create_app(
+        app_settings,
+        readiness_checks={"postgres": _ok},
+        advisory_checks={"redis": _down},
+        connect=False,
+    )
+    with TestClient(app) as c:
+        ready = c.get("/health/ready")
+    assert ready.status_code == 200
+    assert ready.json() == {
+        "status": "degraded",
+        "checks": {"postgres": "ok", "redis": "unavailable"},
+    }
+    assert_response_matches("GET", "/health/ready", ready)
+
+
+def test_hung_redis_check_cannot_fail_readiness(app_settings):
+    import asyncio
+
+    async def hang():
+        await asyncio.sleep(10)
+
+    settings = app_settings.model_copy(update={"readiness_timeout_s": 0.05})
+    app = create_app(
+        settings,
+        readiness_checks={"postgres": _ok},
+        advisory_checks={"redis": hang},
+        connect=False,
+    )
+    with TestClient(app) as c:
+        ready = c.get("/health/ready")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "degraded"
+
+
+def test_default_checks_make_only_postgres_required(app_settings):
+    app = create_app(app_settings, connect=False)
+    assert set(app.state.readiness_checks) == {"postgres"}
+    assert set(app.state.advisory_checks) == {"redis"}
 
 
 def test_not_ready_when_check_hangs(app_settings):

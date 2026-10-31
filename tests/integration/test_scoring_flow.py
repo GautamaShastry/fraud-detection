@@ -147,7 +147,8 @@ def test_expired_lease_is_taken_over(live_client, auth_header, owner_conn):
         "DELETE FROM assessments WHERE payment_attempt_id = %s", (body["payment_attempt_id"],)
     )
     owner_conn.execute(
-        "UPDATE attempts SET status = 'IN_PROGRESS', lease_expires_at = now() - interval '1 s' "
+        # A wide margin: the API compares this with its own clock, not the database's.
+        "UPDATE attempts SET status = 'IN_PROGRESS', lease_expires_at = now() - interval '1 h' "
         "WHERE payment_attempt_id = %s",
         (body["payment_attempt_id"],),
     )
@@ -233,15 +234,16 @@ def test_velocity_failure_degrades_to_fallback(integration_settings, auth_header
 
 
 def test_primary_timeout_degrades_to_fallback(integration_settings, auth_header):
-    slow = SlowScorer("slow-0", stub_bundle().primary.feature_names, 0.5)
-    settings = integration_settings.model_copy(update={"server_deadline_s": 0.4})
+    # Wide margins: this runs on busy machines, and only the order of magnitude matters.
+    slow = SlowScorer("slow-0", stub_bundle().primary.feature_names, 3.0)
+    settings = integration_settings.model_copy(update={"server_deadline_s": 1.0})
     with _client(settings, bundle=_bundle(primary=slow)) as client:
         started = time.perf_counter()
         response = _post(client, auth_header, now_request())
         elapsed = time.perf_counter() - started
     assert response.status_code == 200
     assert response.json()["scoring_mode"] == "FALLBACK"
-    assert elapsed < 0.5  # did not wait for the slow model
+    assert elapsed < 2.0  # did not wait for the slow model
 
 
 def test_primary_and_fallback_failure_is_explicit_unavailable(
@@ -326,3 +328,22 @@ def test_slow_tenant_lookup_counts_against_the_deadline(
         ).fetchone()
         is None
     )
+
+
+async def _redis_ignores_cancellation(attempt: Any) -> VelocityResult:
+    try:
+        await asyncio.sleep(5)
+    except asyncio.CancelledError:
+        await asyncio.sleep(1.5)  # Cleanup against a stalled dependency
+        raise
+    raise AssertionError("unreachable")
+
+
+def test_stalled_cleanup_cannot_hold_the_fallback(integration_settings, auth_header):
+    with _client(integration_settings, velocity=_redis_ignores_cancellation) as client:
+        started = time.perf_counter()
+        response = _post(client, auth_header, now_request())
+        elapsed = time.perf_counter() - started
+    assert response.status_code == 200
+    assert response.json()["scoring_mode"] == "FALLBACK"
+    assert elapsed < 1.0

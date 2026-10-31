@@ -22,6 +22,7 @@ import jwt
 from fastapi import Request
 
 from src.api.problems import ProblemError
+from src.domain.bounded import within
 from src.telemetry import metrics
 
 logger = logging.getLogger(__name__)
@@ -323,8 +324,7 @@ def require_scope(scope: str) -> Callable[[Request], Awaitable[Principal]]:
         resolver: TenantResolver = request.app.state.tenants
         try:
             # Bounded: identity resolution must not consume the whole request deadline.
-            async with asyncio.timeout(TENANT_LOOKUP_TIMEOUT_S):
-                tenant_id = await resolver.resolve(token.client_id)
+            tenant_id = await within(resolver.resolve(token.client_id), TENANT_LOOKUP_TIMEOUT_S)
         except Exception as exc:
             logger.error("Tenant mapping unavailable (%s)", type(exc).__name__)
             raise ProblemError(

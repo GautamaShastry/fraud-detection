@@ -30,6 +30,7 @@ from src.api.auth import SCOPE_SCORE, Principal, require_scope
 from src.api.problems import ProblemError
 from src.api.schemas import ExternalId, ScoreRequest, clock_errors
 from src.api.settings import Settings
+from src.domain.bounded import in_background, within
 from src.domain.identity import Pseudonymizer
 from src.domain.models import Attempt, AttemptStatus
 from src.scoring.engine import ScoringEngine
@@ -117,16 +118,16 @@ async def score(
             remaining = deadline - time.perf_counter()
             if remaining <= 0:
                 raise TimeoutError  # Authentication used it all: do not take a claim.
-            async with asyncio.timeout(remaining):
-                outcome, response = await _score_flow(
-                    request, attempt, engine, settings, clock, held, deadline
-                )
+            outcome, response = await within(
+                _score_flow(request, attempt, engine, settings, clock, held, deadline), remaining
+            )
         except TimeoutError:
             outcome = "deadline"
             span.set_status(Status(StatusCode.ERROR, "deadline exceeded"))
             response = None
             if "claim" in held:
-                await _release_claim(pool, attempt, held["claim"], clock)
+                # In the background: the merchant's answer must not wait on a stalled database.
+                in_background(_release_claim(pool, attempt, held["claim"], clock))
         except ProblemError as problem:
             # Conflicts and unavailability are outcomes too; record them before re-raising.
             outcome = {409: "conflict", 503: "unavailable"}.get(problem.status, "rejected")

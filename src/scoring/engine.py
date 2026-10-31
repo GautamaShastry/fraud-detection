@@ -24,6 +24,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from src.domain.bounded import within
 from src.domain.models import Assessment, Attempt, Recommendation, ScoringMode
 from src.features.velocity import VelocityResult
 from src.scoring.features import FeatureInputs, build_features
@@ -73,6 +74,36 @@ class ScoringEngine:
         self._clock = clock
         self.budgets = budgets or Budgets()
 
+    def warm(self) -> None:
+        """Run the scoring path once, so the first real request doesn't pay for first-use costs.
+
+        Touches no storage and no Redis. Slow (uncompiled) models are skipped: they would only
+        delay startup, and they are not fit for the deadline anyway.
+        """
+        now = self._clock()
+        attempt = Attempt(
+            tenant_id="warmup",
+            payment_attempt_id="warmup",
+            idempotency_key="warmup",
+            transaction_id="warmup",
+            fingerprint=b"warmup",
+            amount_minor=1000,
+            currency="USD",
+            occurred_at=now,
+            received_at=now,
+        )
+        b = self.bundle
+        paths = (
+            (b.primary, b.primary_policy, 1, ScoringMode.ML),
+            (b.fallback, b.fallback_policy, None, ScoringMode.FALLBACK),
+        )
+        for scorer, policy, f01, mode in paths:
+            if scorer is None or policy is None or not getattr(scorer, "inline", False):
+                continue
+            features = build_features(self._inputs(attempt, f01))
+            output = scorer.predict(features)
+            self._assessment(attempt, features, output, mode, scorer, policy, time.perf_counter())
+
     def _inputs(self, attempt: Attempt, f01: int | None) -> FeatureInputs:
         return FeatureInputs(
             amount_minor=attempt.amount_minor,
@@ -100,7 +131,7 @@ class ScoringEngine:
         try:
             if primary_deadline <= started:
                 raise TimeoutError  # No time to spare: go straight to the fallback.
-            velocity = await asyncio.wait_for(
+            velocity = await within(
                 self._velocity(attempt), max(primary_deadline - time.perf_counter(), 0.001)
             )
             features = build_features(self._inputs(attempt, velocity.value))

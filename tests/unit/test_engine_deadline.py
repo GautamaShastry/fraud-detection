@@ -109,3 +109,37 @@ def _replace_fallback(base, fallback):
     from dataclasses import replace
 
     return replace(base, fallback=fallback)
+
+
+class _Inline:
+    inline = True
+
+    def __init__(self, base) -> None:
+        self.model_version, self.feature_names = base.model_version, base.feature_names
+        self.calls = 0
+
+    def predict(self, features: dict[str, float | None]) -> float:
+        self.calls += 1
+        return 0.1
+
+
+def test_warm_runs_both_models_without_touching_velocity():
+    from dataclasses import replace
+
+    base = stub_bundle()
+    primary, fallback = _Inline(base.primary), _Inline(base.fallback)
+    velocity = Velocity()
+    engine = _engine(velocity, Budgets(), replace(base, primary=primary, fallback=fallback))
+    engine.warm()
+    assert primary.calls == 1 and fallback.calls == 1
+    assert velocity.calls == 0
+
+
+def test_warm_skips_slow_models():
+    base = stub_bundle()
+    slow = SlowScorer("slow", base.primary.feature_names, delay_s=5.0)
+    from dataclasses import replace
+
+    started = time.perf_counter()
+    _engine(Velocity(), Budgets(), replace(base, primary=slow, fallback=None)).warm()
+    assert time.perf_counter() - started < 1.0

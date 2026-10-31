@@ -202,6 +202,11 @@ def create_app(
                     settings.commit_reserve_s,
                 ),
             )
+            try:
+                app.state.engine.warm()
+                await app.state.tenants.resolve("warmup")  # Also warms the first connection
+            except Exception as exc:  # noqa: BLE001 - warm-up must never stop startup
+                logging.getLogger(__name__).warning("Warm-up failed (%s)", type(exc).__name__)
         try:
             yield
         finally:

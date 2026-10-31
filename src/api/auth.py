@@ -10,6 +10,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
+import time
+import urllib.request
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,23 +85,69 @@ class StaticKeys:
     def from_file(cls, path: Path) -> StaticKeys:
         return cls(json.loads(path.read_text()))
 
+    @property
+    def keys_by_id(self) -> dict[str, jwt.PyJWK]:
+        return dict(self._keys)
+
     def get(self, kid: str) -> jwt.PyJWK | None:
         return self._keys.get(kid)
 
 
+def _fetch_jwks(url: str, timeout_s: float) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=timeout_s) as resp:  # noqa: S310 - configured URL
+        data: dict[str, Any] = json.loads(resp.read())
+        return data
+
+
 class RemoteKeys:
-    """JWKS fetched from the issuer and cached; refetched on unknown kid (rate-limited)."""
+    """JWKS fetched from the issuer and cached in memory.
+
+    Key lookup happens before the signature is checked, so the `kid` comes from an
+    unauthenticated caller. An unknown kid therefore triggers at most one fetch per
+    `min_refresh_s` (attempts that fail count too); every other unknown kid in between is
+    rejected without network I/O. A lock makes concurrent misses share one fetch. Rotation is
+    still picked up within `min_refresh_s`.
+    """
 
     remote = True
 
-    def __init__(self, url: str) -> None:
-        self._client = jwt.PyJWKClient(url, cache_keys=True, lifespan=300, timeout=3)
+    def __init__(
+        self,
+        url: str,
+        *,
+        min_refresh_s: float = 60.0,
+        timeout_s: float = 3.0,
+        fetch: Callable[[str, float], Mapping[str, Any]] = _fetch_jwks,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._url = url
+        self._min_refresh_s = min_refresh_s
+        self._timeout_s = timeout_s
+        self._fetch = fetch
+        self._clock = clock
+        self._keys: dict[str, jwt.PyJWK] = {}
+        self._last_attempt: float | None = None
+        self._lock = threading.Lock()
 
     def get(self, kid: str) -> jwt.PyJWK | None:
-        try:
-            return self._client.get_signing_key(kid)
-        except jwt.PyJWKClientError:
-            return None
+        key = self._keys.get(kid)
+        if key is not None or not self._refresh_due():
+            return key
+        with self._lock:
+            # Another thread may have refreshed while this one waited for the lock.
+            if kid in self._keys or not self._refresh_due():
+                return self._keys.get(kid)
+            self._last_attempt = self._clock()
+            try:
+                self._keys = StaticKeys(self._fetch(self._url, self._timeout_s)).keys_by_id
+            except Exception as exc:  # noqa: BLE001 - keep serving cached keys
+                logger.warning("JWKS refresh failed (%s)", type(exc).__name__)
+            return self._keys.get(kid)
+
+    def _refresh_due(self) -> bool:
+        return (
+            self._last_attempt is None or self._clock() - self._last_attempt >= self._min_refresh_s
+        )
 
 
 class TokenVerifier:
